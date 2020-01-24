@@ -1,4 +1,4 @@
-set(POLICY_NAME "event_handler_data_object_modified")
+set(POLICY_NAME "access_time")
 
 string(REPLACE "_" "-" POLICY_NAME_HYPHENS ${POLICY_NAME})
 set(IRODS_PACKAGE_COMPONENT_POLICY_NAME "${POLICY_NAME_HYPHENS}${IRODS_PACKAGE_FILE_NAME_SUFFIX}")
@@ -23,8 +23,6 @@ add_library(
     MODULE
     ${CMAKE_SOURCE_DIR}/lib${TARGET_NAME}.cpp
     ${CMAKE_SOURCE_DIR}/utilities.cpp
-    ${CMAKE_SOURCE_DIR}/${POLICY_NAME}_configuration.cpp
-    ${CMAKE_SOURCE_DIR}/${POLICY_NAME}_utilities.cpp
     )
 
 target_include_directories(
@@ -32,8 +30,8 @@ target_include_directories(
     PRIVATE
     ${IRODS_INCLUDE_DIRS}
     ${IRODS_EXTERNALS_FULLPATH_JSON}/include
-    ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
     ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
+    ${IRODS_EXTERNALS_FULLPATH_ARCHIVE}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 

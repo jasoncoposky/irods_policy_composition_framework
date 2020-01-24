@@ -10,7 +10,6 @@
 namespace {
     std::unique_ptr<irods::policy_engine_configuration> config;
     std::string plugin_instance_name{};
-
     const std::string IMPLEMENTED_POLICY_NAME{"irods_policy_engine_example"};
 
     auto rule_name_is_supported(const std::string& _rule_name) {
@@ -88,9 +87,9 @@ irods::error exec_rule(
         if(IMPLEMENTED_POLICY_NAME == _rule_name) {
             // walk the arguments list and any_cast them to known types given this policy signature
             auto it = _arguments.begin();
-            std::string instance_name{ boost::any_cast<std::string>(*it) }; ++it;
-            std::string operation_name{ boost::any_cast<std::string>(*it) }; ++it;
-            std::string json_string{ boost::any_cast<std::string>(*it) };
+            auto instance_name{ boost::any_cast<std::string>(*it) }; ++it;
+            auto operation_name{ boost::any_cast<std::string>(*it) }; ++it;
+            auto json_string{ boost::any_cast<std::string>(*it) };
 
             // invoke example policy given our arguments
             apply_example_policy(

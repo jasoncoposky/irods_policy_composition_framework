@@ -1,51 +1,53 @@
 
 #include "event_handler_data_object_modified_configuration.hpp"
 #include "irods_server_properties.hpp"
+#include "irods_get_full_path_for_config_file.hpp"
+
+#include <fstream>
 
 namespace irods {
     event_handler_data_object_modified_configuration::event_handler_data_object_modified_configuration(
         const std::string& _instance_name ) :
         instance_name{_instance_name} {
-        bool success_flag = false;
-
         try {
-            const auto& rule_engines = get_server_property<
-                const std::vector<boost::any>&>(
-                        std::vector<std::string>{
-                        CFG_PLUGIN_CONFIGURATION_KW,
-                        PLUGIN_TYPE_RULE_ENGINE});
-            for ( const auto& elem : rule_engines ) {
-                const auto& rule_engine = boost::any_cast<const std::unordered_map<std::string, boost::any>&>(elem);
-                const auto& inst_name   = boost::any_cast<const std::string&>(rule_engine.at(CFG_INSTANCE_NAME_KW));
+            std::string cfg_file{};
+            error ret = get_full_path_for_config_file(SERVER_CONFIG_FILE, cfg_file);
+            if(!ret.ok()) {
+                rodsLog(LOG_NOTICE, "get_full_path_for_config_file failed for server_config");
+                return;
+            }
+            rodsLog(LOG_DEBUG, "Loading [%s]", cfg_file.c_str());
 
-                if ( inst_name == _instance_name && rule_engine.count(CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW) > 0) {
-                    const auto& plugin_spec_cfg = boost::any_cast<const std::unordered_map<std::string, boost::any>&>(
-                            rule_engine.at(CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW));
+            std::ifstream ifn(cfg_file.c_str());
+            if(!ifn.is_open()) {
+                rodsLog(LOG_NOTICE, "failed to open [%s]", cfg_file.c_str());
+                return;
+            }
 
-                    if(plugin_spec_cfg.find(policy_to_invoke_configuration) != plugin_spec_cfg.end()) {
-                        using json = nlohmann::json;
-                        // fetch the json array of strings which are the policy we wish to invoke
-                        auto anys = plugin_spec_cfg.at(policy_to_invoke_configuration);
-                        auto vals = boost::any_cast<std::vector<boost::any>>(anys);
-                        for(auto& v : vals) {
-                            policies_to_invoke.push_back(boost::any_cast<std::string>(v));
-                        }
-                    }
+            json server_config;
+            server_config = json::parse(ifn);
+            //server_config << ifn;
+            ifn.close();
 
-                    success_flag = true;
-                } // if inst_name && REP Config
-            } // for rule_engines
-        } catch ( const boost::bad_any_cast& e ) {
-            THROW( INVALID_ANY_CAST, e.what() );
-        } catch ( const std::out_of_range& e ) {
-            THROW( KEY_NOT_FOUND, e.what() );
+            if(server_config.empty()) {
+                std::cout << "SERVER_CONFIG IS EMPTY\n";
+                return;
+            }
+
+            auto reps = server_config["plugin_configuration"]["rule_engines"];
+            if(reps.empty()) {
+                std::cout << "REPS ARE EMPTY\n";
+                return;
+            }
+
+            for(auto& rep : reps) {
+                if(rep["instance_name"] == _instance_name) {
+                    policies_to_invoke_configuration = rep["plugin_specific_configuration"]["policies_to_invoke"];
+                }
+            }
         }
-
-        if(!success_flag) {
-            THROW(
-                SYS_INVALID_INPUT_PARAM,
-                boost::format("failed to find configuration for policy engine plugin [%s]") %
-                _instance_name);
+        catch(...) {
+            rodsLog(LOG_ERROR, "[%s] Exceptio Caught parsing JSON configuration", __FUNCTION__);
         }
     } // ctor event_handler_data_object_modified_configuration
 

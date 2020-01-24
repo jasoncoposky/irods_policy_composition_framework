@@ -1,16 +1,22 @@
 
 #include "irods_re_plugin.hpp"
 #include "irods_re_ruleexistshelper.hpp"
+#include "irods_plugin_context.hpp"
+#include "irods_hierarchy_parser.hpp"
 #include "event_handler_data_object_modified_utilities.hpp"
 #include "event_handler_data_object_modified_configuration.hpp"
 #include "rcMisc.h"
 
 #include <boost/any.hpp>
 #include "objDesc.hpp"
+#include "physPath.hpp"
+#include "bulkDataObjReg.h"
 
 #include "boost/lexical_cast.hpp"
 
 #include "utilities.hpp"
+
+#include <typeinfo>
 
 #include "json.hpp"
 using json = nlohmann::json;
@@ -19,10 +25,50 @@ using json = nlohmann::json;
 extern l1desc_t L1desc[NUM_L1_DESC];
 
 namespace {
+    // create
+    // open : write , read
+    // unlink
+    // rename
+    // register
+    // replication
+    //
+
+    const std::map<std::string, std::string> peps_to_events{
+    { "pep_api_data_obj_put_pre",      "CREATE" },
+    { "pep_api_bulk_data_obj_put_pre", "CREATE" },
+    { "pep_api_data_obj_get_pre",      "READ" },
+    { "pep_api_data_obj_repl_pre",     "REPLICATION" },
+    { "pep_api_data_obj_unlink_pre",   "UNLINK" },
+    { "pep_api_data_obj_rename_pre",   "RENAME" },
+    { "pep_api_phy_path_reg_pre",      "REGISTER" },
+
+    { "pep_api_data_obj_put_post",      "CREATE" },
+    { "pep_api_bulk_data_obj_put_post", "CREATE" },
+    { "pep_api_data_obj_get_post",      "READ" },
+    { "pep_api_data_obj_repl_post",     "REPLICATION" },
+    { "pep_api_data_obj_unlink_post",   "UNLINK" },
+    { "pep_api_data_obj_rename_post",   "RENAME" },
+    { "pep_api_phy_path_reg_post",      "REGISTER" },
+
+    };
+
     std::unique_ptr<irods::event_handler_data_object_modified_configuration> config;
     std::map<int, std::string> objects_in_flight;
     std::string plugin_instance_name{};
     const std::set<std::string> consumed_policy_enforcement_points{
+                                    "pep_resource_resolve_hierarchy_pre",
+                                    "pep_api_bulk_data_obj_put_pre",
+                                    "pep_api_data_obj_create_pre",
+                                    "pep_api_data_obj_open_pre",
+                                    "pep_api_data_obj_close_pre",
+                                    "pep_api_data_obj_put_pre",
+                                    "pep_api_data_obj_repl_pre",
+                                    "pep_api_data_obj_get_pre",
+                                    "pep_api_data_obj_unlink_pre",
+                                    "pep_api_data_obj_rename_pre",
+                                    "pep_api_phy_path_reg_pre"
+                                    "pep_resource_resolve_hierarchy_post",
+                                    "pep_api_bulk_data_obj_put_post",
                                     "pep_api_data_obj_create_post",
                                     "pep_api_data_obj_open_post",
                                     "pep_api_data_obj_close_post",
@@ -38,18 +84,138 @@ namespace {
                 consumed_policy_enforcement_points.end());
     } // rule_name_is_supported
 
+    std::string hierarchy_resolution_operation{};
+
+    void invoke_policies_for_object(
+        ruleExecInfo_t*   _rei,
+        const std::string _rule_name,
+        const std::string _event,
+        const std::string _obj_json_str) {
+        if( config->policies_to_invoke_configuration.empty()) {
+            rodsLog(
+                LOG_ERROR,
+                "[%s] is missing configuration",
+                plugin_instance_name.c_str());
+            return;
+        }
+
+        std::list<boost::any> args;
+        for(auto& policy : config->policies_to_invoke_configuration) {
+            auto pre_post = policy["pre_or_post_invocation"];
+            if(pre_post.empty()) {
+                continue;
+            }
+
+            for(auto& p : pre_post) {
+                std::string suffix{"_"}; suffix += p;
+                if(_rule_name.find(suffix) != std::string::npos) {
+                    auto ops = policy["events"];
+                    for(auto& op : ops) {
+                        std::string upper_operation{op};
+                        std::transform(upper_operation.begin(),
+                                       upper_operation.end(),
+                                       upper_operation.begin(),
+                                       ::toupper);
+                        if(upper_operation != _event) {
+                            continue;
+                        }
+
+                        auto cfg{policy["configuration"]};
+                        std::string pn{policy["policy"]};
+
+                        args.clear();
+                        args.push_back(boost::any(_rule_name));
+                        args.push_back(boost::any(_event));
+                        args.push_back(boost::any(_obj_json_str));
+                        args.push_back(boost::any(cfg.dump()));
+
+                        irods::invoke_policy(_rei, pn, args);
+                    } // for ops
+
+                } // if suffix
+            } // for pre_post
+        } // for policy
+    } // invoke_policies_for_object
+
+    void seralize_bulk_put_object_parameters(
+        ruleExecInfo_t*    _rei,
+        const std::string& _rule_name,
+        genQueryOut_t&     _attr_arr,
+        keyValPair_t&      _cond_input) {
+        const std::string event{hierarchy_resolution_operation};
+
+        auto obj_path = getSqlResultByInx(&_attr_arr, COL_DATA_NAME);
+        if(!obj_path) {
+            THROW(UNMATCHED_KEY_OR_INDEX, "missing object path");
+        }
+
+        auto offset = getSqlResultByInx(&_attr_arr, OFFSET_INX);
+        if(!offset) {
+            THROW(UNMATCHED_KEY_OR_INDEX, "missing offset");
+        }
+
+        std::vector<int> offset_int{};
+        for (int i = 0; i < _attr_arr.rowCnt; ++i) {
+            offset_int.push_back(atoi(&offset->value[offset->len * i]));
+        }
+
+        dataObjInp_t obj_inp{};
+        obj_inp.condInput = _cond_input;
+        for(int i = 0; i < _attr_arr.rowCnt; ++i) {
+            rstrcpy(obj_inp.objPath,
+                    &obj_path->value[obj_path->len * i],
+                    sizeof(obj_inp.objPath));
+            obj_inp.dataSize = i==0 ? offset_int[0] : offset_int[i]-offset_int[i-1];
+            auto jobj = irods::serialize_dataObjInp_to_json(obj_inp);
+            invoke_policies_for_object(_rei, _rule_name, event, jobj.dump());
+
+        } // for i
+
+    } // seralize_bulk_put_object_parameters
+
     void event_data_object_modified(
         const std::string&           _rule_name,
         ruleExecInfo_t*              _rei,
         const std::list<boost::any>& _arguments) {
-
         try {
-            // all three PEPs use the same signature
-            if("pep_api_data_obj_put_post"    == _rule_name ||
-               "pep_api_data_obj_get_post"    == _rule_name ||
-               "pep_api_data_obj_unlink_post" == _rule_name ||
-               "pep_api_data_obj_repl_post"   == _rule_name ||
-               "pep_api_phy_path_reg_post"    == _rule_name) {
+            if("pep_resource_resolve_hierarchy_pre"  == _rule_name ||
+               "pep_resource_resolve_hierarchy_post" == _rule_name) {
+                auto it = _arguments.begin();
+                auto ins = boost::any_cast<std::string>(*it); ++it;
+                auto ctx = boost::any_cast<irods::plugin_context>(*it); ++it;
+                auto out = boost::any_cast<std::string*>(*it); ++it;
+                auto opr = boost::any_cast<const std::string*>(*it); ++it;
+                //auto hst = boost::any_cast<const std::string*>(*it); ++it;
+                //auto prs = boost::any_cast<irods::hierarchy_parser*>(*it); ++it;
+                //auto vte = boost::any_cast<float*>(*it); ++it;
+                //std::string hier; prs->str(hier);
+                hierarchy_resolution_operation = *opr;
+            }
+            else if("pep_api_bulk_data_obj_put_pre"  == _rule_name ||
+                    "pep_api_bulk_data_obj_put_post" == _rule_name) {
+                auto it = _arguments.begin();
+                std::advance(it, 2);
+                if(_arguments.end() == it) {
+                    THROW(
+                        SYS_INVALID_INPUT_PARAM,
+                        "invalid number of arguments");
+                }
+
+                auto bulk_inp = boost::any_cast<bulkOprInp_t*>(*it);
+                seralize_bulk_put_object_parameters(_rei, _rule_name, bulk_inp->attriArray, bulk_inp->condInput);
+            }
+            // all PEPs use the same signature
+            else if("pep_api_data_obj_put_pre"     == _rule_name ||
+                    "pep_api_data_obj_get_pre"     == _rule_name ||
+                    "pep_api_data_obj_unlink_pre"  == _rule_name ||
+                    "pep_api_data_obj_repl_pre"    == _rule_name ||
+                    "pep_api_phy_path_reg_pre"     == _rule_name ||
+                    "pep_api_data_obj_put_post"    == _rule_name ||
+                    "pep_api_data_obj_get_post"    == _rule_name ||
+                    "pep_api_data_obj_unlink_post" == _rule_name ||
+                    "pep_api_data_obj_repl_post"   == _rule_name ||
+                    "pep_api_phy_path_reg_post"    == _rule_name) {
+
                 auto it = _arguments.begin();
                 std::advance(it, 2);
                 if(_arguments.end() == it) {
@@ -61,22 +227,18 @@ namespace {
                 auto obj_inp = boost::any_cast<dataObjInp_t*>(*it);
                 auto jobj = irods::serialize_dataObjInp_to_json(*obj_inp);
 
-                std::list<boost::any> args;
-                args.push_back(boost::any(plugin_instance_name));
-                args.push_back(boost::any(_rule_name));
-                args.push_back(boost::any(jobj.dump()));
+                const std::string event = [&]() -> const std::string {
+                    // replication can involve a create vote operation, translate to repl op
+                    const std::string& op = peps_to_events.at(_rule_name);
+                    if("CREATE" == hierarchy_resolution_operation &&
+                       _rule_name.find("pep_api_data_obj_repl_") != std::string::npos) return "CREATE";
+                    else return op;
+                }();
 
-                for(auto& pn : config->policies_to_invoke) {
-                    rodsLog(
-                        LOG_DEBUG,
-                        "EVENT_DATA_OBJECT_MODIFIED - 1. Invoke Policy for Data Modification Event : [%s]",
-                        pn.c_str());
-                    irods::invoke_policy(_rei, pn, args);
-                }
-
-
+                invoke_policies_for_object(_rei, _rule_name, event, jobj.dump());
             }
-            else if("pep_api_data_obj_rename_post" == _rule_name) {
+            else if("pep_api_data_obj_rename_pre"  == _rule_name ||
+                    "pep_api_data_obj_rename_post" == _rule_name) {
                 auto it = _arguments.begin();
                 std::advance(it, 2);
                 if(_arguments.end() == it) {
@@ -84,38 +246,20 @@ namespace {
                         SYS_INVALID_INPUT_PARAM,
                         "invalid number of arguments");
                 }
+                const std::string event = peps_to_events.at(_rule_name);
 
                 auto copy_inp = boost::any_cast<dataObjCopyInp_t*>(*it);
                 auto src_jobj = irods::serialize_dataObjInp_to_json(copy_inp->srcDataObjInp);
+                invoke_policies_for_object(_rei, _rule_name, event, src_jobj.dump());
+
                 auto dst_jobj = irods::serialize_dataObjInp_to_json(copy_inp->destDataObjInp);
-
-                std::list<boost::any> args;
-                args.push_back(boost::any(plugin_instance_name));
-                args.push_back(boost::any(_rule_name));
-                args.push_back(boost::any(src_jobj.dump()));
-                for(auto& pn : config->policies_to_invoke) {
-                    rodsLog(
-                        LOG_DEBUG,
-                        "EVENT_DATA_OBJECT_MODIFIED - 2 Source. Invoke Policy for Data Rename Event : [%s]",
-                        pn.c_str());
-                    irods::invoke_policy(_rei, pn, args);
-                }
-
-                args.clear();
-                args.push_back(boost::any(plugin_instance_name));
-                args.push_back(boost::any(_rule_name));
-                args.push_back(boost::any(dst_jobj.dump()));
-                for(auto& pn : config->policies_to_invoke) {
-                    rodsLog(
-                        LOG_DEBUG,
-                        "EVENT_DATA_OBJECT_MODIFIED - 2 Destination. Invoke Policy for Data Rename Event : [%s]",
-                        pn.c_str());
-                    irods::invoke_policy(_rei, pn, args);
-                }
+                invoke_policies_for_object(_rei, _rule_name, event, dst_jobj.dump());
             }
             // uses the file descriptor table to track modify operations
             // only add an entry if the object is created or opened for write
-            else if("pep_api_data_obj_open_post"   == _rule_name ||
+            else if("pep_api_data_obj_open_pre"   == _rule_name ||
+                    "pep_api_data_obj_create_pre" == _rule_name ||
+                    "pep_api_data_obj_open_post"   == _rule_name ||
                     "pep_api_data_obj_create_post" == _rule_name) {
                 auto it = _arguments.begin();
                 std::advance(it, 2);
@@ -126,7 +270,6 @@ namespace {
                 }
                 auto obj_inp = boost::any_cast<dataObjInp_t*>(*it);
 
-                // TODO: determine if a modification is happening first
                 int l1_idx{};
                 std::string jstr;
                 try {
@@ -142,7 +285,8 @@ namespace {
             }
             // uses the tracked file descriptor table operations to invoke policy
             // if changes were actually made to the object
-            else if("pep_api_data_obj_close_post" == _rule_name) {
+            else if("pep_api_data_obj_close_pre"  == _rule_name ||
+                    "pep_api_data_obj_close_post" == _rule_name) {
                 auto it = _arguments.begin();
                 std::advance(it, 2);
                 if(_arguments.end() == it) {
@@ -157,25 +301,18 @@ namespace {
                 jstr = objects_in_flight[l1_idx];
 
                 auto jobj = json::parse(jstr);
-                std::string open_flags_str = jobj["open_flags"];
-                auto open_flags = boost::lexical_cast<int>(open_flags_str);
-                bool create = (open_flags & O_RDWR ) == O_RDWR;
-                create = create & ((open_flags & O_WRONLY) == O_WRONLY);
-                create = create & ((open_flags & O_CREAT)  == O_CREAT);
-                rodsLog(LOG_NOTICE, "XXXX - create mode [%d]", create);
+                auto open_flags = boost::lexical_cast<int>(std::string{jobj["open_flags"]});
+                bool write_flag = (open_flags & O_WRONLY || open_flags & O_RDWR);
+                bool create_flag = (open_flags & O_CREAT);
 
+                const std::string event = [&]() -> const std::string {
+                    if("CREATE" == hierarchy_resolution_operation) return "CREATE";
+                    else if("OPEN" == hierarchy_resolution_operation && write_flag) return "WRITE";
+                    else if("OPEN" == hierarchy_resolution_operation && !write_flag) return "READ";
+                    else return hierarchy_resolution_operation;
+                }();
 
-                std::list<boost::any> args;
-                args.push_back(boost::any(plugin_instance_name));
-                args.push_back(boost::any(_rule_name));
-                args.push_back(boost::any(jstr));
-                for(auto& pn : config->policies_to_invoke) {
-                    rodsLog(
-                        LOG_DEBUG,
-                        "EVENT_DATA_OBJECT_MODIFIED - 3. Invoke Policy for Data Stream Event : [%s]",
-                        pn.c_str());
-                    irods::invoke_policy(_rei, pn, args);
-                }
+                invoke_policies_for_object(_rei, _rule_name, event, jstr);
             } // else if
         }
         catch(const std::invalid_argument& _e) {
