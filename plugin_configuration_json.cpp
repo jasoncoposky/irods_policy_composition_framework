@@ -1,12 +1,12 @@
 
-#include "event_handler_data_object_modified_configuration.hpp"
+#include "plugin_configuration_json.hpp"
 #include "irods_server_properties.hpp"
 #include "irods_get_full_path_for_config_file.hpp"
 
 #include <fstream>
 
 namespace irods {
-    event_handler_data_object_modified_configuration::event_handler_data_object_modified_configuration(
+    plugin_configuration_json::plugin_configuration_json(
         const std::string& _instance_name ) :
         instance_name{_instance_name} {
         try {
@@ -16,40 +16,41 @@ namespace irods {
                 rodsLog(LOG_NOTICE, "get_full_path_for_config_file failed for server_config");
                 return;
             }
-            rodsLog(LOG_DEBUG, "Loading [%s]", cfg_file.c_str());
+
+            rodsLog(LOG_DEBUG, "[%s] Loading [%s]", _instance_name.c_str(), cfg_file.c_str());
 
             std::ifstream ifn(cfg_file.c_str());
             if(!ifn.is_open()) {
-                rodsLog(LOG_NOTICE, "failed to open [%s]", cfg_file.c_str());
+                rodsLog(LOG_ERROR, "[%s] failed to open [%s]", _instance_name.c_str(), cfg_file.c_str());
                 return;
             }
 
             json server_config;
             server_config = json::parse(ifn);
-            //server_config << ifn;
             ifn.close();
 
             if(server_config.empty()) {
-                std::cout << "SERVER_CONFIG IS EMPTY\n";
+                rodsLog(LOG_ERROR, "[%s] empty server config json object", _instance_name.c_str());
                 return;
             }
 
             auto reps = server_config["plugin_configuration"]["rule_engines"];
             if(reps.empty()) {
-                std::cout << "REPS ARE EMPTY\n";
+                rodsLog(LOG_ERROR, "[%s] empty rule engine plugin json array", _instance_name.c_str());
                 return;
             }
 
             for(auto& rep : reps) {
                 if(rep["instance_name"] == _instance_name) {
-                    policies_to_invoke_configuration = rep["plugin_specific_configuration"]["policies_to_invoke"];
+                    plugin_configuration = rep["plugin_specific_configuration"];
+                    break;
                 }
             }
         }
-        catch(...) {
-            rodsLog(LOG_ERROR, "[%s] Exceptio Caught parsing JSON configuration", __FUNCTION__);
+        catch(const json::exception& e) {
+            rodsLog(LOG_ERROR, "[%s] Exception Caught parsing JSON configuration [%s]", _instance_name.c_str(), e.what());
         }
-    } // ctor event_handler_data_object_modified_configuration
+    } // ctor plugin_configuration_json
 
 } // namepsace irods
 

@@ -68,9 +68,10 @@ namespace irods {
     } // collapse_error_stack
 
     void invoke_policy(
-        ruleExecInfo_t*       _rei,
-        const std::string&    _action,
-        std::list<boost::any> _args) {
+          ruleExecInfo_t*       _rei
+        , const std::string&    _action
+        , std::list<boost::any> _args)
+    {
         irods::rule_engine_context_manager<
             irods::unit,
             ruleExecInfo_t*,

@@ -16,7 +16,6 @@
 using json = nlohmann::json;
 
 namespace {
-//    std::unique_ptr<irods::policy_engine_configuration> config;
     std::string plugin_instance_name{};
     const std::string IMPLEMENTED_POLICY_NAME{"irods_policy_access_time"};
 
@@ -81,16 +80,14 @@ namespace {
         rsComm_t*              _comm,
         std::list<boost::any>& _args) {
         try {
-            if(_args.size() != 4) {
+            if(_args.size() != 2) {
                 THROW(
                     SYS_INVALID_INPUT_PARAM,
                     "invalid number of arguments");
             }
 
             auto it = _args.begin();
-            auto instance_name{ boost::any_cast<std::string>(*it)}; ++it;
-            auto event{boost::any_cast<std::string>(*it)};          ++it;
-            auto params_str{boost::any_cast<std::string>(*it)};    ++it;
+            auto params_str{boost::any_cast<std::string>(*it)}; ++it;
             auto cfg_str{boost::any_cast<std::string>(*it)};
             rodsLog(LOG_DEBUG,
                     "[%s] json string [%s]",
@@ -178,7 +175,7 @@ irods::error start(
     irods::default_re_ctx&,
     const std::string& _instance_name ) {
     plugin_instance_name = _instance_name;
-    RuleExistsHelper::Instance()->registerRuleRegex("irods_policy_apply_access_time");
+    RuleExistsHelper::Instance()->registerRuleRegex(IMPLEMENTED_POLICY_NAME);
     return SUCCESS();
 } // start
 

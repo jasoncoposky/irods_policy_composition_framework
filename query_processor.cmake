@@ -1,4 +1,4 @@
-set(POLICY_NAME "event_handler_data_object_modified")
+set(POLICY_NAME "query_processor")
 
 string(REPLACE "_" "-" POLICY_NAME_HYPHENS ${POLICY_NAME})
 set(IRODS_PACKAGE_COMPONENT_POLICY_NAME "${POLICY_NAME_HYPHENS}${IRODS_PACKAGE_FILE_NAME_SUFFIX}")
@@ -23,8 +23,6 @@ add_library(
     MODULE
     ${CMAKE_SOURCE_DIR}/lib${TARGET_NAME}.cpp
     ${CMAKE_SOURCE_DIR}/utilities.cpp
-    ${CMAKE_SOURCE_DIR}/plugin_configuration_json.cpp
-    ${CMAKE_SOURCE_DIR}/${POLICY_NAME}_utilities.cpp
     )
 
 target_include_directories(
@@ -41,7 +39,10 @@ target_link_libraries(
     ${TARGET_NAME}
     PRIVATE
     ${IRODS_PLUGIN_POLICY_LINK_LIBRARIES}
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_thread.so
     irods_common
+    pthread
     )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE ${IRODS_PLUGIN_POLICY_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS} BOOST_SYSTEM_NO_DEPRECATED)

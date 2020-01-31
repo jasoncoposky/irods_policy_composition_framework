@@ -4,7 +4,7 @@
 #include "irods_plugin_context.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "event_handler_data_object_modified_utilities.hpp"
-#include "event_handler_data_object_modified_configuration.hpp"
+#include "plugin_configuration_json.hpp"
 #include "rcMisc.h"
 
 #include <boost/any.hpp>
@@ -25,14 +25,6 @@ using json = nlohmann::json;
 extern l1desc_t L1desc[NUM_L1_DESC];
 
 namespace {
-    // create
-    // open : write , read
-    // unlink
-    // rename
-    // register
-    // replication
-    //
-
     const std::map<std::string, std::string> peps_to_events{
     { "pep_api_data_obj_put_pre",      "CREATE" },
     { "pep_api_bulk_data_obj_put_pre", "CREATE" },
@@ -52,7 +44,7 @@ namespace {
 
     };
 
-    std::unique_ptr<irods::event_handler_data_object_modified_configuration> config;
+    std::unique_ptr<irods::plugin_configuration_json> config;
     std::map<int, std::string> objects_in_flight;
     std::string plugin_instance_name{};
     const std::set<std::string> consumed_policy_enforcement_points{
@@ -87,11 +79,13 @@ namespace {
     std::string hierarchy_resolution_operation{};
 
     void invoke_policies_for_object(
-        ruleExecInfo_t*   _rei,
-        const std::string _rule_name,
-        const std::string _event,
-        const std::string _obj_json_str) {
-        if( config->policies_to_invoke_configuration.empty()) {
+        ruleExecInfo_t*    _rei,
+        const std::string& _event,
+        const std::string& _rule_name,
+        const std::string& _obj_json_str) {
+        auto policies_to_invoke{config->plugin_configuration["policies_to_invoke"]};
+
+        if(policies_to_invoke.empty()) {
             rodsLog(
                 LOG_ERROR,
                 "[%s] is missing configuration",
@@ -100,7 +94,7 @@ namespace {
         }
 
         std::list<boost::any> args;
-        for(auto& policy : config->policies_to_invoke_configuration) {
+        for(auto& policy : policies_to_invoke) {
             auto pre_post = policy["pre_or_post_invocation"];
             if(pre_post.empty()) {
                 continue;
@@ -124,8 +118,6 @@ namespace {
                         std::string pn{policy["policy"]};
 
                         args.clear();
-                        args.push_back(boost::any(_rule_name));
-                        args.push_back(boost::any(_event));
                         args.push_back(boost::any(_obj_json_str));
                         args.push_back(boost::any(cfg.dump()));
 
@@ -167,7 +159,9 @@ namespace {
                     sizeof(obj_inp.objPath));
             obj_inp.dataSize = i==0 ? offset_int[0] : offset_int[i]-offset_int[i-1];
             auto jobj = irods::serialize_dataObjInp_to_json(obj_inp);
-            invoke_policies_for_object(_rei, _rule_name, event, jobj.dump());
+            jobj["policy_enforcement_point"] = _rule_name;
+            jobj["event"] = event;
+            invoke_policies_for_object(_rei, event, _rule_name, jobj.dump());
 
         } // for i
 
@@ -235,7 +229,9 @@ namespace {
                     else return op;
                 }();
 
-                invoke_policies_for_object(_rei, _rule_name, event, jobj.dump());
+                jobj["policy_enforcement_point"] = _rule_name;
+                jobj["event"] = event;
+                invoke_policies_for_object(_rei, event, _rule_name, jobj.dump());
             }
             else if("pep_api_data_obj_rename_pre"  == _rule_name ||
                     "pep_api_data_obj_rename_post" == _rule_name) {
@@ -249,11 +245,16 @@ namespace {
                 const std::string event = peps_to_events.at(_rule_name);
 
                 auto copy_inp = boost::any_cast<dataObjCopyInp_t*>(*it);
+
                 auto src_jobj = irods::serialize_dataObjInp_to_json(copy_inp->srcDataObjInp);
-                invoke_policies_for_object(_rei, _rule_name, event, src_jobj.dump());
+                src_jobj["policy_enforcement_point"] = _rule_name;
+                src_jobj["event"] = event;
+                invoke_policies_for_object(_rei, event, _rule_name, src_jobj.dump());
 
                 auto dst_jobj = irods::serialize_dataObjInp_to_json(copy_inp->destDataObjInp);
-                invoke_policies_for_object(_rei, _rule_name, event, dst_jobj.dump());
+                dst_jobj["policy_enforcement_point"] = _rule_name;
+                dst_jobj["event"] = event;
+                invoke_policies_for_object(_rei, event, _rule_name, dst_jobj.dump());
             }
             // uses the file descriptor table to track modify operations
             // only add an entry if the object is created or opened for write
@@ -268,6 +269,7 @@ namespace {
                         SYS_INVALID_INPUT_PARAM,
                         "invalid number of arguments");
                 }
+
                 auto obj_inp = boost::any_cast<dataObjInp_t*>(*it);
 
                 int l1_idx{};
@@ -312,7 +314,9 @@ namespace {
                     else return hierarchy_resolution_operation;
                 }();
 
-                invoke_policies_for_object(_rei, _rule_name, event, jstr);
+                jobj["policy_enforcement_point"] = _rule_name;
+                jobj["event"] = event;
+                invoke_policies_for_object(_rei, event, _rule_name, jobj.dump());
             } // else if
         }
         catch(const std::invalid_argument& _e) {
@@ -339,18 +343,20 @@ irods::error start(
     plugin_instance_name = _instance_name;
 
     // load the plugin specific configuration for this instance
-    config = std::make_unique<irods::event_handler_data_object_modified_configuration>(plugin_instance_name);
+    config = std::make_unique<irods::plugin_configuration_json>(plugin_instance_name);
 
     // build a list of pep strings for the regexp
     std::string regex{};
     for( auto& s : consumed_policy_enforcement_points) {
         regex += s + " || ";
     }
+
     // trim trailing " || "
-    regex.substr(regex.size()-4);
+    regex = regex.substr(0, regex.size()-4);
 
     // register the event handler's peps as implemented by this plugin
-    RuleExistsHelper::Instance()->registerRuleRegex(regex);
+    //RuleExistsHelper::Instance()->registerRuleRegex(regex);
+    RuleExistsHelper::Instance()->registerRuleRegex("pep_.*");
 
     return SUCCESS();
 }

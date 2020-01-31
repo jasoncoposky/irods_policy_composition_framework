@@ -30,20 +30,8 @@ namespace irods {
                 SYS_INVALID_INPUT_PARAM,
                 "no object found");
         }
-#if 0
-        std::string resource_name;
-        irods::error err = irods::get_resource_property<std::string>(
-                               obj_info->rescId,
-                               irods::RESOURCE_NAME,
-                               resource_name);
-        if(!err.ok()) {
-            THROW(err.code(), err.result());
-        }
-        return std::make_tuple(l1_idx, resource_name);
-#else
         auto jobj = serialize_dataObjInp_to_json(*_inp);
         return std::make_tuple(l1_idx, jobj.dump());
-#endif
     } // get_index_and_resource_from_obj_inp
 
     auto serialize_keyValPair_to_json(const keyValPair_t& _kvp) -> json {
