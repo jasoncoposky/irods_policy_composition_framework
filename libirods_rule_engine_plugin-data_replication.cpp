@@ -1,28 +1,15 @@
 
-#include "irods_query.hpp"
-#include "irods_re_plugin.hpp"
-#include "irods_re_ruleexistshelper.hpp"
-#include "irods_server_api_call.hpp"
-#include "irods_hierarchy_parser.hpp"
+#include "policy_engine.hpp"
 #include "filesystem.hpp"
-#include "utilities.hpp"
+
+#include "irods_hierarchy_parser.hpp"
+#include "irods_server_api_call.hpp"
 
 #include "rsDataObjRepl.hpp"
 #include "physPath.hpp"
 #include "apiNumber.h"
 
-#include "json.hpp"
-
-#include <boost/any.hpp>
-
 namespace {
-    const std::string IMPLEMENTED_POLICY_NAME{"irods_policy_data_replication"};
-
-    auto rule_name_is_supported(const std::string& _rule_name)
-    {
-        return (IMPLEMENTED_POLICY_NAME == _rule_name);
-    } // rule_name_is_supported
-
     void replicate_object_to_resource(
           rsComm_t*          _comm
         , const std::string& _object_path
@@ -50,91 +37,38 @@ namespace {
         }
     } // replicate_object_to_resource
 
-} // namespace
+    namespace pe = irods::policy_engine;
 
-std::string plugin_instance_name{};
-
-irods::error start(
-      irods::default_re_ctx&
-    , const std::string& _instance_name)
-{
-    plugin_instance_name = _instance_name;
-    RuleExistsHelper::Instance()->registerRuleRegex(IMPLEMENTED_POLICY_NAME);
-    return SUCCESS();
-}
-
-irods::error stop(
-      irods::default_re_ctx&
-    , const std::string& )
-{
-    return SUCCESS();
-}
-
-irods::error rule_exists(
-      irods::default_re_ctx&
-    , const std::string& _rule_name
-    , bool&              _return_value)
-{
-    _return_value = rule_name_is_supported(_rule_name);
-    return SUCCESS();
-}
-
-irods::error list_rules(
-      irods::default_re_ctx&
-    , std::vector<std::string>& _rules)
-{
-    _rules.push_back(IMPLEMENTED_POLICY_NAME);
-    return SUCCESS();
-}
-
-irods::error exec_rule(
-      irods::default_re_ctx&
-    , const std::string&
-    , std::list<boost::any>& _arguements
-    , irods::callback        _eff_hdlr)
-{
-    ruleExecInfo_t* rei{};
-    const auto err = _eff_hdlr("unsafe_ms_ctx", &rei);
-    if(!err.ok()) {
-        return err;
-    }
-
-    using json = nlohmann::json;
-
-    try {
-        auto it = _arguements.begin();
-        std::string parameter_string{ boost::any_cast<std::string>(*it) }; ++it;
-        std::string configuration_string{ boost::any_cast<std::string>(*it) };
-
-        auto parameters{json::parse(parameter_string)};
+    void replication_policy(const pe::context ctx)
+    {
         std::string object_path{}, source_resource{}, destination_resource{};
 
         // output from query processor is an array of results
-        if(parameters.is_array()) {
+        if(ctx.parameters.is_array()) {
             using fsp = irods::experimental::filesystem::path;
 
-            fsp coll{parameters[0]};
-            fsp data{parameters[1]};
+            fsp coll{ctx.parameters[0]};
+            fsp data{ctx.parameters[1]};
 
             auto p = coll / data;
             object_path = p.string();
-            source_resource = parameters[2];
+            source_resource = ctx.parameters[2];
         }
         else {
-            object_path = parameters["obj_path"];
+            object_path = ctx.parameters["obj_path"];
 
-            auto param_source_resource = parameters["source_resource"];
+            auto param_source_resource = ctx.parameters["source_resource"];
             if(!param_source_resource.empty()) {
                 source_resource = param_source_resource;
             }
             else {
                 std::string resc_hier{};
-                auto param_resc_hier = parameters["cond_input"]["resc_hier"];
+                auto param_resc_hier = ctx.parameters["cond_input"]["resc_hier"];
                 if(param_resc_hier.empty()) {
                     THROW(
                         SYS_INVALID_INPUT_PARAM,
                         boost::format("%s - source_resource or resc_hier not provided")
-                        % IMPLEMENTED_POLICY_NAME);
+                        % ctx.policy_name);
                 }
 
                 resc_hier = param_resc_hier;
@@ -142,199 +76,67 @@ irods::error exec_rule(
                 source_resource = parser.first_resc();
             }
 
-            auto param_destination_resource = parameters["destination_resource"];
+            auto param_destination_resource = ctx.parameters["destination_resource"];
             if(!param_destination_resource.empty()) {
                 destination_resource = param_destination_resource;
             }
         }
+
+        auto comm = ctx.rei->rsComm;
 
         if(!destination_resource.empty()) {
             replicate_object_to_resource(
-                rei->rsComm,
-                object_path,
-                source_resource,
-                destination_resource);
+                comm
+                , object_path
+                , source_resource
+                , destination_resource);
         }
         else {
-            if(configuration_string.empty()) {
+            if(ctx.configuration.empty()) {
                 THROW(
                     SYS_INVALID_INPUT_PARAM,
                     boost::format("%s - destination_resource is empty and configuration is not provided")
-                    % IMPLEMENTED_POLICY_NAME);
+                    % ctx.policy_name);
             }
 
-            auto configuration{json::parse(configuration_string)};
-            auto param_destination_resource = configuration["destination_resource"];
+            auto param_destination_resource = ctx.configuration["destination_resource"];
             if(!param_destination_resource.empty()) {
                 destination_resource = param_destination_resource;
                 replicate_object_to_resource(
-                    rei->rsComm,
-                    object_path,
-                    source_resource,
-                    destination_resource);
+                      comm
+                    , object_path
+                    , source_resource
+                    , destination_resource);
             }
             else {
-                auto src_dst_map{configuration.at("source_to_destination_map")};
+                auto src_dst_map{ctx.configuration.at("source_to_destination_map")};
                 if(src_dst_map.empty()) {
                     THROW(
                         SYS_INVALID_INPUT_PARAM,
                         boost::format("%s - destination_resource or source_to_destination_map not provided")
-                        % IMPLEMENTED_POLICY_NAME);
+                        % ctx.policy_name);
                 }
                 auto dst_resc_arr{src_dst_map.at(source_resource)};
                 auto destination_resources = dst_resc_arr.get<std::vector<std::string>>();
                 for( auto& dest : destination_resources) {
                     replicate_object_to_resource(
-                        rei->rsComm,
-                        object_path,
-                        source_resource,
-                        dest);
+                          comm
+                        , object_path
+                        , source_resource
+                        , dest);
                 }
             }
         }
-
-    }
-    catch(const  std::invalid_argument& _e) {
-        irods::exception_to_rerror(
-            SYS_NOT_SUPPORTED,
-            _e.what(),
-            rei->rsComm->rError);
-        return ERROR(
-                   SYS_NOT_SUPPORTED,
-                   _e.what());
-    }
-    catch(const boost::bad_any_cast& _e) {
-        irods::exception_to_rerror(
-            INVALID_ANY_CAST,
-            _e.what(),
-            rei->rsComm->rError);
-        return ERROR(
-                   SYS_NOT_SUPPORTED,
-                   _e.what());
-    }
-    catch(const irods::exception& _e) {
-        irods::exception_to_rerror(
-            _e,
-            rei->rsComm->rError);
-        return irods::error(_e);
-    }
-
-    return err;
-
-} // exec_rule
-
-irods::error exec_rule_text(
-    irods::default_re_ctx&,
-    const std::string&,
-    msParamArray_t*,
-    const std::string&,
-    irods::callback ) {
-    return ERROR(
-            RULE_ENGINE_CONTINUE,
-            "exec_rule_text is not supported");
-} // exec_rule_text
-
-irods::error exec_rule_expression(
-    irods::default_re_ctx&,
-    const std::string&,
-    msParamArray_t*,
-    irods::callback) {
-    return ERROR(
-            RULE_ENGINE_CONTINUE,
-            "exec_rule_expression is not supported");
-} // exec_rule_expression
+    } // replication_policy
+} // namespace
 
 extern "C"
-irods::pluggable_rule_engine<irods::default_re_ctx>* plugin_factory(
-    const std::string& _inst_name,
-    const std::string& _context ) {
-    irods::pluggable_rule_engine<irods::default_re_ctx>* re =
-        new irods::pluggable_rule_engine<irods::default_re_ctx>(
-                _inst_name,
-                _context);
-
-    re->add_operation<
-        irods::default_re_ctx&,
-        const std::string&>(
-            "start",
-            std::function<
-                irods::error(
-                    irods::default_re_ctx&,
-                    const std::string&)>(start));
-
-    re->add_operation<
-        irods::default_re_ctx&,
-        const std::string&>(
-            "stop",
-            std::function<
-                irods::error(
-                    irods::default_re_ctx&,
-                    const std::string&)>(stop));
-
-    re->add_operation<
-        irods::default_re_ctx&,
-        const std::string&,
-        bool&>(
-            "rule_exists",
-            std::function<
-                irods::error(
-                    irods::default_re_ctx&,
-                    const std::string&,
-                    bool&)>(rule_exists));
-
-    re->add_operation<
-        irods::default_re_ctx&,
-        std::vector<std::string>&>(
-            "list_rules",
-            std::function<
-                irods::error(
-                    irods::default_re_ctx&,
-                    std::vector<std::string>&)>(list_rules));
-
-    re->add_operation<
-        irods::default_re_ctx&,
-        const std::string&,
-        std::list<boost::any>&,
-        irods::callback>(
-            "exec_rule",
-            std::function<
-                irods::error(
-                    irods::default_re_ctx&,
-                    const std::string&,
-                    std::list<boost::any>&,
-                    irods::callback)>(exec_rule));
-
-    re->add_operation<
-        irods::default_re_ctx&,
-        const std::string&,
-        msParamArray_t*,
-        const std::string&,
-        irods::callback>(
-            "exec_rule_text",
-            std::function<
-                irods::error(
-                    irods::default_re_ctx&,
-                    const std::string&,
-                    msParamArray_t*,
-                    const std::string&,
-                    irods::callback)>(exec_rule_text));
-
-    re->add_operation<
-        irods::default_re_ctx&,
-        const std::string&,
-        msParamArray_t*,
-        irods::callback>(
-            "exec_rule_expression",
-            std::function<
-                irods::error(
-                    irods::default_re_ctx&,
-                    const std::string&,
-                    msParamArray_t*,
-                    irods::callback)>(exec_rule_expression));
-    return re;
-
+pe::plugin_pointer_type plugin_factory(
+      const std::string& _plugin_name
+    , const std::string&)
+{
+    return pe::make(
+             _plugin_name
+            , "irods_policy_data_replication"
+            , replication_policy);
 } // plugin_factory
-
-
-
-
