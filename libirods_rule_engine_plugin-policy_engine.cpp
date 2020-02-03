@@ -3,7 +3,7 @@
 
 namespace pe = irods::policy_engine;
 
-void example_policy(const pe::context& ctx)
+irods::error example_policy(const pe::context& ctx)
 {
     //  struct context {
     //      ruleExecInfo_t* rei{};
@@ -17,6 +17,7 @@ void example_policy(const pe::context& ctx)
         , "[%s]::[%s]"
         , ctx.instance_name.c_str()
         , ctx.policy_name.c_str());
+    return SUCCESS();
 } // example_policy
 
 extern "C"

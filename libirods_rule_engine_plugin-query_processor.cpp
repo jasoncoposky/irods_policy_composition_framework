@@ -10,7 +10,7 @@
 namespace {
     namespace pe = irods::policy_engine;
 
-    void query_processor_policy(const pe::context& ctx)
+    irods::error query_processor_policy(const pe::context& ctx)
     {
         try {
 
@@ -51,12 +51,12 @@ namespace {
                         std::get<1>(e).c_str());
                 }
 
-                THROW(
-                    SYS_INVALID_OPR_TYPE,
-                    boost::format(
-                    "scheduling failed for [%d] objects for query [%s]")
-                    % errors.size()
-                    % query_string.c_str());
+                return ERROR(
+                           SYS_INVALID_OPR_TYPE,
+                           boost::format(
+                           "scheduling failed for [%d] objects for query [%s]")
+                           % errors.size()
+                           % query_string.c_str());
             }
 
         }
@@ -65,11 +65,15 @@ namespace {
                 // if nothing of interest is found, thats not an error
             }
             else {
-                irods::log(e);
                 irods::exception_to_rerror(
                     e, ctx.rei->rsComm->rError);
+                return ERROR(
+                          e.code(),
+                          e.what());
             }
         }
+
+        return SUCCESS();
 
     } // query_processor_policy
 

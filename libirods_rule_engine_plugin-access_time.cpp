@@ -9,7 +9,7 @@
 #include "rsCloseCollection.hpp"
 
 namespace {
-    void update_access_time_for_data_object(
+    int update_access_time_for_data_object(
           rsComm_t*          _comm
         , const std::string& _logical_path
         , const std::string& _attribute) {
@@ -23,16 +23,11 @@ namespace {
             const_cast<char*>(ts.c_str()),
             ""};
 
-        auto status = rsModAVUMetadata(_comm, &avuOp);
-        if(status < 0) {
-            THROW(
-                status,
-                boost::format("failed to set access time for [%s]") %
-                _logical_path);
-        }
+        return rsModAVUMetadata(_comm, &avuOp);
+
     } // update_access_time_for_data_object
 
-    void apply_access_time_to_collection(
+    int apply_access_time_to_collection(
           rsComm_t*          _comm
         , int                _handle
         , const std::string& _attribute)
@@ -43,7 +38,7 @@ namespace {
             if(DATA_OBJ_T == coll_ent->objType) {
                 using fsp = irods::experimental::filesystem::path;
                 auto  lp  = fsp{coll_ent->collName} / fsp{coll_ent->dataName};
-                update_access_time_for_data_object(_comm, lp.string(), _attribute);
+                err = update_access_time_for_data_object(_comm, lp.string(), _attribute);
             }
             else if(COLL_OBJ_T == coll_ent->objType) {
                 collInp_t coll_inp;
@@ -58,16 +53,21 @@ namespace {
             }
 
             err = rsReadCollection(_comm, &_handle, &coll_ent);
+
         } // while
+
+        return err;
+
     } // apply_access_time_to_collection
 
     namespace pe = irods::policy_engine;
 
-    void access_time_policy(const pe::context& ctx)
+    irods::error access_time_policy(const pe::context& ctx)
     {
         auto comm = ctx.rei->rsComm;
 
         auto cond_input = ctx.parameters["cond_input"];
+
         bool collection_operation{!cond_input.empty() && !cond_input[COLLECTION_KW].empty()};
 
         std::string attribute{"irods::access_time"};
@@ -84,7 +84,13 @@ namespace {
         }
 
         if(!collection_operation) {
-            update_access_time_for_data_object(comm, obj_path, attribute);
+            int status =  update_access_time_for_data_object(comm, obj_path, attribute);
+            if(status < 0) {
+                return ERROR(
+                           status,
+                           boost::format("failed to update access time for object [%s]")
+                           % obj_path);
+            }
         }
         else {
             // register a collection
@@ -96,14 +102,23 @@ namespace {
                 , MAX_NAME_LEN);
             int handle = rsOpenCollection(comm, &coll_inp);
             if(handle < 0) {
-                THROW(
-                    handle,
-                    boost::format("failed to open collection [%s]") %
-                    obj_path);
+                return ERROR(
+                           handle,
+                           boost::format("failed to open collection [%s]") %
+                           obj_path);
             }
 
-            apply_access_time_to_collection(comm, handle, attribute);
+            int status = apply_access_time_to_collection(comm, handle, attribute);
+            if(status < 0) {
+                return ERROR(
+                           status,
+                           boost::format("failed to update access time for collection [%s]")
+                               % obj_path);
+            }
         }
+
+        return SUCCESS();
+
     } // access_time_policy
 
 } // namespace

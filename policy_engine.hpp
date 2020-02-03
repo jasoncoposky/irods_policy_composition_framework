@@ -25,7 +25,7 @@ namespace irods {
 
         using plugin_type         = pluggable_rule_engine<irods::default_re_ctx>;
         using plugin_pointer_type = plugin_type*;
-        using implementation_type = std::function<void(const context&)>;
+        using implementation_type = std::function<error(const context&)>;
 
         context             policy_context;
         implementation_type policy_implementation;
@@ -96,12 +96,9 @@ namespace irods {
                             policy_context.configuration = json::parse(configuration_string);
                         }
 
-                        policy_implementation(policy_context);
+                        return policy_implementation(policy_context);
                     }
 
-                    return ERROR(
-                               SYS_NOT_SUPPORTED,
-                               _rule_name);
                 }
                 catch(const std::invalid_argument& _e) {
                     exception_to_rerror(

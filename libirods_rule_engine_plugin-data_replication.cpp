@@ -10,7 +10,7 @@
 #include "apiNumber.h"
 
 namespace {
-    void replicate_object_to_resource(
+    int replicate_object_to_resource(
           rsComm_t*          _comm
         , const std::string& _object_path
         , const std::string& _source_resource
@@ -27,71 +27,58 @@ namespace {
         }
 
         transferStat_t* trans_stat{};
-        const auto repl_err = irods::server_api_call(DATA_OBJ_REPL_AN, _comm, &data_obj_inp, &trans_stat);
-        free(trans_stat);
-        if(repl_err < 0) {
-            THROW(repl_err,
-                boost::format("failed to migrate [%s] to [%s]") %
-                _object_path % _destination_resource);
 
-        }
+        const auto repl_err = irods::server_api_call(DATA_OBJ_REPL_AN, _comm, &data_obj_inp, &trans_stat);
+
+        free(trans_stat);
+
+        return repl_err;
+
     } // replicate_object_to_resource
 
     namespace pe = irods::policy_engine;
 
-    void replication_policy(const pe::context ctx)
+    irods::error replication_policy(const pe::context ctx)
     {
         std::string object_path{}, source_resource{}, destination_resource{};
 
-        // output from query processor is an array of results
+        // query processor invocation
         if(ctx.parameters.is_array()) {
             using fsp = irods::experimental::filesystem::path;
 
-            fsp coll{ctx.parameters[0]};
-            fsp data{ctx.parameters[1]};
+            std::string tmp_coll_name{}, tmp_data_name{};
 
-            auto p = coll / data;
-            object_path = p.string();
-            source_resource = ctx.parameters[2];
+            std::tie(tmp_coll_name, tmp_data_name, source_resource) = irods::extract_array_parameters<3, std::string>(ctx.parameters);
+
+            object_path = (fsp{tmp_coll_name} / fsp{tmp_data_name}).string();
         }
         else {
-            object_path = ctx.parameters["obj_path"];
-
-            auto param_source_resource = ctx.parameters["source_resource"];
-            if(!param_source_resource.empty()) {
-                source_resource = param_source_resource;
-            }
-            else {
-                std::string resc_hier{};
-                auto param_resc_hier = ctx.parameters["cond_input"]["resc_hier"];
-                if(param_resc_hier.empty()) {
-                    THROW(
-                        SYS_INVALID_INPUT_PARAM,
-                        boost::format("%s - source_resource or resc_hier not provided")
-                        % ctx.policy_name);
-                }
-
-                resc_hier = param_resc_hier;
-                irods::hierarchy_parser parser(resc_hier);
-                source_resource = parser.first_resc();
-            }
-
-            auto param_destination_resource = ctx.parameters["destination_resource"];
-            if(!param_destination_resource.empty()) {
-                destination_resource = param_destination_resource;
-            }
+            // event handler or direct call invocation
+            std::tie(object_path, source_resource, destination_resource) = irods::extract_dataobj_inp_parameters(
+                                                                                 ctx.parameters
+                                                                               , irods::tag_first_resc);
         }
 
         auto comm = ctx.rei->rsComm;
 
         if(!destination_resource.empty()) {
-            replicate_object_to_resource(
-                comm
-                , object_path
-                , source_resource
-                , destination_resource);
+            // direct call invocation
+            int err = replicate_object_to_resource(
+                            comm
+                          , object_path
+                          , source_resource
+                          , destination_resource);
+            if(err < 0) {
+                return ERROR(
+                          err,
+                          boost::format("failed to replicate [%s] from [%s] to [%s]")
+                          % object_path
+                          % source_resource
+                          % destination_resource);
+            }
         }
         else {
+            // event handler invocation
             if(ctx.configuration.empty()) {
                 THROW(
                     SYS_INVALID_INPUT_PARAM,
@@ -99,14 +86,21 @@ namespace {
                     % ctx.policy_name);
             }
 
-            auto param_destination_resource = ctx.configuration["destination_resource"];
-            if(!param_destination_resource.empty()) {
-                destination_resource = param_destination_resource;
-                replicate_object_to_resource(
-                      comm
-                    , object_path
-                    , source_resource
-                    , destination_resource);
+            destination_resource = irods::extract_object_parameter<std::string>("destination_resource", ctx.configuration);
+            if(!destination_resource.empty()) {
+                int err = replicate_object_to_resource(
+                                comm
+                              , object_path
+                              , source_resource
+                              , destination_resource);
+                if(err < 0) {
+                    return ERROR(
+                              err,
+                              boost::format("failed to replicate [%s] from [%s] to [%s]")
+                              % object_path
+                              % source_resource
+                              % destination_resource);
+                }
             }
             else {
                 auto src_dst_map{ctx.configuration.at("source_to_destination_map")};
@@ -118,16 +112,32 @@ namespace {
                 }
                 auto dst_resc_arr{src_dst_map.at(source_resource)};
                 auto destination_resources = dst_resc_arr.get<std::vector<std::string>>();
+                irods::error ret{SUCCESS()};
                 for( auto& dest : destination_resources) {
-                    replicate_object_to_resource(
-                          comm
-                        , object_path
-                        , source_resource
-                        , dest);
+                    int err = replicate_object_to_resource(
+                                    comm
+                                  , object_path
+                                  , source_resource
+                                  , dest);
+                    if(err < 0) {
+                        ret = PASSMSG(
+                                  boost::str(boost::format("failed to replicate [%s] from [%s] to [%s]")
+                                  % object_path
+                                  % source_resource),
+                                  ret);
+                    }
+                }
+
+                if(!ret.ok()) {
+                    return ret;
                 }
             }
         }
+
+        return SUCCESS();
+
     } // replication_policy
+
 } // namespace
 
 extern "C"

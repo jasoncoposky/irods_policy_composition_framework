@@ -224,9 +224,10 @@ namespace {
                 const std::string event = [&]() -> const std::string {
                     // replication can involve a create vote operation, translate to repl op
                     const std::string& op = peps_to_events.at(_rule_name);
-                    if("CREATE" == hierarchy_resolution_operation &&
-                       _rule_name.find("pep_api_data_obj_repl_") != std::string::npos) return "CREATE";
-                    else return op;
+                    //if("CREATE" == hierarchy_resolution_operation &&
+                    //   _rule_name.find("pep_api_data_obj_repl_") != std::string::npos) return "CREATE";
+                    //else
+                    return op;
                 }();
 
                 jobj["policy_enforcement_point"] = _rule_name;

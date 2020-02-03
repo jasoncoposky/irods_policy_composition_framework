@@ -22,7 +22,6 @@ add_library(
     ${TARGET_NAME}
     MODULE
     ${CMAKE_SOURCE_DIR}/lib${TARGET_NAME}.cpp
-    ${CMAKE_SOURCE_DIR}/utilities.cpp
     ${CMAKE_SOURCE_DIR}/${POLICY_NAME}_configuration.cpp
     )
 
