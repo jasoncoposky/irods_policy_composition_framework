@@ -126,6 +126,13 @@ namespace irods {
                                SYS_NOT_SUPPORTED,
                                _e.what());
                 }
+                catch(...) {
+                    rodsLog(LOG_ERROR, "policy_engine :: an unknown error has occurred.");
+                    return ERROR(
+                               SYS_NOT_SUPPORTED,
+                               "policy_engine :: an unknown error has occurred.");
+                }
+
 
                 // given that this is a specific policy implementation which does not react
                 // to policy enforcement points we can return SUCCESS() rather than

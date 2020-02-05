@@ -1,8 +1,8 @@
 
 #include "policy_engine.hpp"
+#include "plugin_configuration_json.hpp"
 
 #include "rsDataObjTrim.hpp"
-#include "physPath.hpp"
 
 namespace pe = irods::policy_engine;
 
@@ -38,7 +38,7 @@ namespace {
 
     irods::error data_retention_policy(const pe::context& ctx)
     {
-        std::string object_path{}, source_resource{}, destination_resource{};
+        std::string object_path{}, source_resource{}, attribute{};
 
         // query processor invocation
         if(ctx.parameters.is_array()) {
@@ -52,13 +52,26 @@ namespace {
             object_path = (fsp{tmp_coll_name} / fsp{tmp_data_name}).string();
         }
         else {
+            std::string tmp_dst_resc;
             // event handler or direct call invocation
-            std::tie(object_path, source_resource, destination_resource) = irods::extract_dataobj_inp_parameters(
+            std::tie(object_path, source_resource, tmp_dst_resc) = irods::extract_dataobj_inp_parameters(
                                                                                  ctx.parameters
-                                                                               , irods::tag_first_resc);
+                                                                               , irods::tag_last_resc);
         }
 
         auto comm = ctx.rei->rsComm;
+
+        irods::plugin_configuration_json cfg{ctx.instance_name};
+
+        attribute = irods::extract_object_parameter<std::string>("attribute", cfg.plugin_configuration);
+        if(attribute.empty()) {
+            attribute = "irods::retention::preserve_replicas";
+        }
+
+        auto [preserve_replicas, unit] = irods::get_metadata_for_resource(comm, attribute, source_resource);
+        if("true" == preserve_replicas) {
+            return SUCCESS();
+        }
 
         const auto err = trim_data_object(comm, object_path, source_resource);
         if(err < 0) {

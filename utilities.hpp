@@ -134,6 +134,10 @@ namespace irods {
         std::string object_path{}, source_resource{}, destination_resource{};
 
         object_path = extract_object_parameter<std::string>("obj_path", _params);
+        if(object_path.empty()) {
+           object_path = extract_object_parameter<std::string>("object_path", _params);
+        }
+
         source_resource = extract_object_parameter<std::string>("source_resource", _params);
         destination_resource = extract_object_parameter<std::string>("destination_resource", _params);
 
@@ -206,11 +210,7 @@ namespace irods {
             return std::make_tuple(qobj.front()[0], qobj.front()[1]);
         }
 
-        THROW(
-            CAT_NO_ROWS_FOUND,
-            boost::format("no results found for resc [%s] with attribute [%s]") %
-            _resource_name %
-            _meta_attr_name);
+        return std::make_tuple(std::string{}, std::string{});
     } // get_metadata_for_resource
 
 } // namespace irods
