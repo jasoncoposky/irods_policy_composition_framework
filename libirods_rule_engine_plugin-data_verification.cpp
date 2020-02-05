@@ -1,5 +1,6 @@
 
 #include "policy_engine.hpp"
+#include "exec_as_user.hpp"
 #include "plugin_configuration_json.hpp"
 #include "data_verification_utilities.hpp"
 
@@ -8,7 +9,7 @@ namespace pe = irods::policy_engine;
 namespace {
     irods::error data_verification_policy(const pe::context& ctx)
     {
-        std::string object_path{}, source_resource{}, destination_resource{}, attribute{};
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{}, attribute{}, verification_type{}, unit{};
 
         if(ctx.parameters.is_array()) {
             using fsp = irods::experimental::filesystem::path;
@@ -22,9 +23,10 @@ namespace {
         }
         else {
             // event handler or direct call invocation
-            std::tie(object_path, source_resource, destination_resource) = irods::extract_dataobj_inp_parameters(
-                                                                                 ctx.parameters
-                                                                               , irods::tag_last_resc);
+            std::tie(user_name, object_path, source_resource, destination_resource) =
+                irods::extract_dataobj_inp_parameters(
+                      ctx.parameters
+                    , irods::tag_last_resc);
         }
 
         auto comm = ctx.rei->rsComm;
@@ -36,14 +38,17 @@ namespace {
             attribute = "irods::verification::type";
         }
 
-        auto [verification_type, unit] = irods::get_metadata_for_resource(comm, attribute, destination_resource);
+        std::tie(verification_type, unit) = irods::get_metadata_for_resource(comm, attribute, destination_resource);
 
-        auto verified = irods::verify_replica_for_destination_resource(
-                              comm
-                            , verification_type
-                            , object_path
-                            , source_resource
-                            , destination_resource);
+        auto verif_fcn = [&](auto& comm) {
+            return irods::verify_replica_for_destination_resource(
+                         &comm
+                       , verification_type
+                       , object_path
+                       , source_resource
+                       , destination_resource);};
+
+        auto verified = irods::exec_as_user(*comm, user_name, verif_fcn);
 
         if(verified) {
             return SUCCESS();

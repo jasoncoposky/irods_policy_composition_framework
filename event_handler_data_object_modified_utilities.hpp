@@ -12,5 +12,6 @@ namespace irods {
     auto get_index_and_json_from_obj_inp(const dataObjInp_t*) -> std::tuple<int, std::string>;
     auto serialize_keyValPair_to_json(const keyValPair_t&) -> json;
     auto serialize_dataObjInp_to_json(const dataObjInp_t&) -> json;
+    auto serialize_rsComm_to_json(rsComm_t*) -> json;
 
 } // namespace irods

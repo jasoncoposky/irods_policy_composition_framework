@@ -9,7 +9,7 @@ namespace {
 
     irods::error data_restage_policy(const pe::context& ctx)
     {
-        std::string object_path{}, source_resource{};
+        std::string user_name{}, object_path{}, source_resource{};
 
         // query processor invocation
         if(ctx.parameters.is_array()) {
@@ -25,14 +25,15 @@ namespace {
         else {
             std::string tmp_dst_resc;
             // event handler or direct call invocation
-            std::tie(object_path, source_resource, tmp_dst_resc) = irods::extract_dataobj_inp_parameters(
-                                                                                 ctx.parameters
-                                                                               , irods::tag_last_resc);
+            std::tie(user_name, object_path, source_resource, tmp_dst_resc) =
+                irods::extract_dataobj_inp_parameters(
+                      ctx.parameters
+                    , irods::tag_last_resc);
         }
         irods::storage_tiering st{ctx.rei, ctx.instance_name};
         st.migrate_object_to_minimum_restage_tier(
               object_path
-            , ctx.rei->rsComm->clientUser.userName
+            , user_name
             , source_resource);
 
         return SUCCESS();

@@ -131,7 +131,13 @@ namespace irods {
           const json& _params
         , TAG_TYPE    T)
     {
-        std::string object_path{}, source_resource{}, destination_resource{};
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
+
+        auto comm = _params["comm"];
+        user_name = extract_object_parameter<std::string>("proxy_user_name", comm);
+        if(user_name.empty()) {
+            user_name = extract_object_parameter<std::string>("user_name", comm);
+        }
 
         object_path = extract_object_parameter<std::string>("obj_path", _params);
         if(object_path.empty()) {
@@ -163,7 +169,7 @@ namespace irods {
             }
         }
 
-        return std::make_tuple(object_path, source_resource, destination_resource);
+        return std::make_tuple(user_name, object_path, source_resource, destination_resource);
     }
 
     template<typename T>

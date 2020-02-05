@@ -10,11 +10,6 @@ namespace irods {
     {
         auto& user = _comm.clientUser;
 
-        // need to be able to have a rodsuser/rodsuser 'switch hats'
-        //if (user.authInfo.authFlag < LOCAL_PRIV_USER_AUTH) {
-        //    THROW(CAT_INSUFFICIENT_PRIVILEGE_LEVEL, "Cannot switch user");
-        //}
-
         const std::string old_user_name = user.userName;
 
         rstrcpy(user.userName, _user_name.data(), NAME_LEN);

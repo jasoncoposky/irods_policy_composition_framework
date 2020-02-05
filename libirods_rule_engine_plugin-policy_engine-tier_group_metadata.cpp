@@ -36,7 +36,7 @@ namespace {
 
         auto comm = ctx.rei->rsComm;
 
-        std::string object_path{}, source_resource{}, destination_resource{};
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
 
         // query processor invocation
         if(ctx.parameters.is_array()) {
@@ -51,9 +51,10 @@ namespace {
         }
         else {
             // event handler or direct call invocation
-            std::tie(object_path, source_resource, destination_resource) = irods::extract_dataobj_inp_parameters(
-                                                                                 ctx.parameters
-                                                                               , irods::tag_last_resc);
+            std::tie(user_name, object_path, source_resource, destination_resource) =
+                irods::extract_dataobj_inp_parameters(
+                      ctx.parameters
+                    , irods::tag_last_resc);
         }
 
         auto group_name = get_group_name_for_data_object(
@@ -66,7 +67,7 @@ namespace {
         st.apply_tier_group_metadata_to_object(
               group_name
             , object_path
-            , ctx.rei->rsComm->clientUser.userName
+            , user_name
             , destination_resource);
 
         return SUCCESS();

@@ -4,6 +4,8 @@
 namespace pe = irods::policy_engine;
 
 namespace {
+    using invoke_policy_type = std::function<void(ruleExecInfo_t*, const std::string&, std::list<boost::any>)>;
+
     void apply_data_replication_policy(
           ruleExecInfo_t*    _rei
         , const std::string& _parameters) {
@@ -37,7 +39,7 @@ namespace {
 
     irods::error data_movement_policy(const pe::context& ctx)
     {
-        std::string object_path{}, source_resource{}, destination_resource{};
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
 
         // query processor invocation
         if(ctx.parameters.is_array()) {
@@ -52,13 +54,15 @@ namespace {
         }
         else {
             // event handler or direct call invocation
-            std::tie(object_path, source_resource, destination_resource) = irods::extract_dataobj_inp_parameters(
-                                                                                 ctx.parameters
-                                                                               , irods::tag_first_resc);
+            std::tie(user_name, object_path, source_resource, destination_resource) =
+                irods::extract_dataobj_inp_parameters(
+                      ctx.parameters
+                    , irods::tag_first_resc);
         }
 
         nlohmann::json params = {
-              { "object_path", object_path }
+              { "user_name", user_name }
+            , { "object_path", object_path }
             , { "source_resource", source_resource }
             , { "destination_resource", destination_resource }
         };

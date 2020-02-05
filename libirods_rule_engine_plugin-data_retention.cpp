@@ -1,5 +1,6 @@
 
 #include "policy_engine.hpp"
+#include "exec_as_user.hpp"
 #include "plugin_configuration_json.hpp"
 
 #include "rsDataObjTrim.hpp"
@@ -8,7 +9,8 @@ namespace pe = irods::policy_engine;
 
 namespace {
     int trim_data_object(
-          rsComm_t* _comm
+          rsComm_t*          _comm
+        , const std::string& _user_name
         , const std::string& _object_path
         , const std::string& _source_resource)
     {
@@ -32,13 +34,16 @@ namespace {
                 "true" );
         }
 
-        return rsDataObjTrim(_comm, &obj_inp);
+        auto trim_fcn = [&](auto& comm) {
+            return rsDataObjTrim(&comm, &obj_inp);};
+
+        return irods::exec_as_user(*_comm, _user_name, trim_fcn);
 
     } // trim_data_object
 
     irods::error data_retention_policy(const pe::context& ctx)
     {
-        std::string object_path{}, source_resource{}, attribute{};
+        std::string user_name{}, object_path{}, source_resource{}, attribute{};
 
         // query processor invocation
         if(ctx.parameters.is_array()) {
@@ -54,9 +59,10 @@ namespace {
         else {
             std::string tmp_dst_resc;
             // event handler or direct call invocation
-            std::tie(object_path, source_resource, tmp_dst_resc) = irods::extract_dataobj_inp_parameters(
-                                                                                 ctx.parameters
-                                                                               , irods::tag_last_resc);
+            std::tie(user_name, object_path, source_resource, tmp_dst_resc) =
+                irods::extract_dataobj_inp_parameters(
+                      ctx.parameters
+                    , irods::tag_last_resc);
         }
 
         auto comm = ctx.rei->rsComm;
@@ -73,7 +79,7 @@ namespace {
             return SUCCESS();
         }
 
-        const auto err = trim_data_object(comm, object_path, source_resource);
+        const auto err = trim_data_object(comm, user_name, object_path, source_resource);
         if(err < 0) {
             return ERROR(
                        err,

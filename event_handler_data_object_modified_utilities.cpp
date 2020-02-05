@@ -12,7 +12,9 @@
 extern l1desc_t L1desc[NUM_L1_DESC];
 
 namespace irods {
-    auto get_index_and_json_from_obj_inp(const dataObjInp_t* _inp) -> std::tuple<int, std::string>{
+
+    auto get_index_and_json_from_obj_inp(const dataObjInp_t* _inp) -> std::tuple<int, std::string>
+    {
         int l1_idx{};
         dataObjInfo_t* obj_info{};
         for(const auto& l1 : L1desc) {
@@ -30,11 +32,15 @@ namespace irods {
                 SYS_INVALID_INPUT_PARAM,
                 "no object found");
         }
+
         auto jobj = serialize_dataObjInp_to_json(*_inp);
+
         return std::make_tuple(l1_idx, jobj.dump());
+
     } // get_index_and_resource_from_obj_inp
 
-    auto serialize_keyValPair_to_json(const keyValPair_t& _kvp) -> json {
+    auto serialize_keyValPair_to_json(const keyValPair_t& _kvp) -> json
+    {
         json j;
         if(_kvp.len > 0) {
             for(int i = 0; i < _kvp.len; ++i) {
@@ -52,9 +58,11 @@ namespace irods {
         }
 
         return j;
+
     } // serialize_keyValPair_to_json
 
-    auto serialize_dataObjInp_to_json(const dataObjInp_t& _inp) -> json {
+    auto serialize_dataObjInp_to_json(const dataObjInp_t& _inp) -> json
+    {
         json j;
         j["obj_path"]    = _inp.objPath;
         j["create_mode"] = boost::lexical_cast<std::string>(_inp.createMode);
@@ -66,8 +74,53 @@ namespace irods {
         j["cond_input"]  = serialize_keyValPair_to_json(_inp.condInput);
 
         return j;
+
     } // seralize_dataObjInp_to_json
 
+    auto serialize_rsComm_to_json(rsComm_t* _comm) -> json
+    {
+        json j;
+        if (_comm) {
+            j["client_addr"] = _comm->clientAddr;
+
+            if(_comm->auth_scheme) {j["auth_scheme"] = _comm->auth_scheme;}
+
+            j["proxy_user_name"] = _comm->proxyUser.userName;
+            j["proxy_rods_zone"] = _comm->proxyUser.rodsZone;
+            j["proxy_user_type"] = _comm->proxyUser.userType;
+            j["proxy_sys_uid"] = boost::lexical_cast<std::string>(_comm->proxyUser.sysUid);
+            j["proxy_auth_info_auth_scheme"] = _comm->proxyUser.authInfo.authScheme;
+            j["proxy_auth_info_auth_flag"] = boost::lexical_cast<std::string>(_comm->proxyUser.authInfo.authFlag);
+            j["proxy_auth_info_flag"] = boost::lexical_cast<std::string>(_comm->proxyUser.authInfo.flag);
+            j["proxy_auth_info_ppid"] = boost::lexical_cast<std::string>(_comm->proxyUser.authInfo.ppid);
+            j["proxy_auth_info_host"] = _comm->proxyUser.authInfo.host;
+            j["proxy_auth_info_auth_str"] = _comm->proxyUser.authInfo.authStr;
+            j["proxy_user_other_info_user_info"] = _comm->proxyUser.userOtherInfo.userInfo;
+            j["proxy_user_other_info_user_comments"] = _comm->proxyUser.userOtherInfo.userComments;
+            j["proxy_user_other_info_user_create"] = _comm->proxyUser.userOtherInfo.userCreate;
+            j["proxy_user_other_info_user_modify"] = _comm->proxyUser.userOtherInfo.userModify;
+
+            j["user_user_name"] = _comm->clientUser.userName;
+            j["user_rods_zone"] = _comm->clientUser.rodsZone;
+            j["user_user_type"] = _comm->clientUser.userType;
+            j["user_sys_uid"] = boost::lexical_cast<std::string>(_comm->clientUser.sysUid);
+            j["user_auth_info_auth_scheme"] = _comm->clientUser.authInfo.authScheme;
+            j["user_auth_info_auth_flag"] = boost::lexical_cast<std::string>(_comm->clientUser.authInfo.authFlag);
+            j["user_auth_info_flag"] = boost::lexical_cast<std::string>(_comm->clientUser.authInfo.flag);
+            j["user_auth_info_ppid"] = boost::lexical_cast<std::string>(_comm->clientUser.authInfo.ppid);
+            j["user_auth_info_host"] = _comm->clientUser.authInfo.host;
+            j["user_auth_info_auth_str"] = _comm->clientUser.authInfo.authStr;
+            j["user_user_other_info_user_info"] = _comm->clientUser.userOtherInfo.userInfo;
+            j["user_user_other_info_user_comments"] = _comm->clientUser.userOtherInfo.userComments;
+            j["user_user_other_info_user_create"] = _comm->clientUser.userOtherInfo.userCreate;
+            j["user_user_other_info_user_modify"] = _comm->clientUser.userOtherInfo.userModify;
+        } else {
+            j["rsComm_ptr"] = "nullptr";
+        }
+
+        return j;
+
+    } // serialize_rsComm_ptr
 
 } // namespace irods
 

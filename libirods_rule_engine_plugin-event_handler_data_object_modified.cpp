@@ -136,6 +136,8 @@ namespace {
         keyValPair_t&      _cond_input) {
         const std::string event{hierarchy_resolution_operation};
 
+        auto comm_obj = irods::serialize_rsComm_to_json(_rei->rsComm);
+
         auto obj_path = getSqlResultByInx(&_attr_arr, COL_DATA_NAME);
         if(!obj_path) {
             THROW(UNMATCHED_KEY_OR_INDEX, "missing object path");
@@ -161,6 +163,7 @@ namespace {
             auto jobj = irods::serialize_dataObjInp_to_json(obj_inp);
             jobj["policy_enforcement_point"] = _rule_name;
             jobj["event"] = event;
+            jobj["comm"] = comm_obj;
             invoke_policies_for_object(_rei, event, _rule_name, jobj.dump());
 
         } // for i
@@ -172,6 +175,9 @@ namespace {
         ruleExecInfo_t*              _rei,
         const std::list<boost::any>& _arguments) {
         try {
+
+            auto comm_obj = irods::serialize_rsComm_to_json(_rei->rsComm);
+
             if("pep_resource_resolve_hierarchy_pre"  == _rule_name ||
                "pep_resource_resolve_hierarchy_post" == _rule_name) {
                 auto it = _arguments.begin();
@@ -232,6 +238,7 @@ namespace {
 
                 jobj["policy_enforcement_point"] = _rule_name;
                 jobj["event"] = event;
+                jobj["comm"] = comm_obj;
                 invoke_policies_for_object(_rei, event, _rule_name, jobj.dump());
             }
             else if("pep_api_data_obj_rename_pre"  == _rule_name ||
@@ -250,11 +257,13 @@ namespace {
                 auto src_jobj = irods::serialize_dataObjInp_to_json(copy_inp->srcDataObjInp);
                 src_jobj["policy_enforcement_point"] = _rule_name;
                 src_jobj["event"] = event;
+                src_jobj["comm"] = comm_obj;
                 invoke_policies_for_object(_rei, event, _rule_name, src_jobj.dump());
 
                 auto dst_jobj = irods::serialize_dataObjInp_to_json(copy_inp->destDataObjInp);
                 dst_jobj["policy_enforcement_point"] = _rule_name;
                 dst_jobj["event"] = event;
+                dst_jobj["comm"] = comm_obj;
                 invoke_policies_for_object(_rei, event, _rule_name, dst_jobj.dump());
             }
             // uses the file descriptor table to track modify operations
@@ -317,6 +326,7 @@ namespace {
 
                 jobj["policy_enforcement_point"] = _rule_name;
                 jobj["event"] = event;
+                jobj["comm"] = comm_obj;
                 invoke_policies_for_object(_rei, event, _rule_name, jobj.dump());
             } // else if
         }

@@ -4,6 +4,7 @@
 
 #include "irods_hierarchy_parser.hpp"
 #include "irods_server_api_call.hpp"
+#include "exec_as_user.hpp"
 
 #include "rsDataObjRepl.hpp"
 #include "physPath.hpp"
@@ -12,6 +13,7 @@
 namespace {
     int replicate_object_to_resource(
           rsComm_t*          _comm
+        , const std::string& _user_name
         , const std::string& _object_path
         , const std::string& _source_resource
         , const std::string& _destination_resource)
@@ -28,11 +30,13 @@ namespace {
 
         transferStat_t* trans_stat{};
 
-        const auto repl_err = irods::server_api_call(DATA_OBJ_REPL_AN, _comm, &data_obj_inp, &trans_stat);
+        //const auto repl_err = irods::server_api_call(DATA_OBJ_REPL_AN, _comm, &data_obj_inp, &trans_stat);
+        auto repl_fcn = [&](auto& comm){
+            auto ret = irods::server_api_call(DATA_OBJ_REPL_AN, _comm, &data_obj_inp, &trans_stat);
+            free(trans_stat);
+            return ret;};
 
-        free(trans_stat);
-
-        return repl_err;
+        return irods::exec_as_user(*_comm, _user_name, repl_fcn);
 
     } // replicate_object_to_resource
 
@@ -40,7 +44,7 @@ namespace {
 
     irods::error replication_policy(const pe::context ctx)
     {
-        std::string object_path{}, source_resource{}, destination_resource{};
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
 
         // query processor invocation
         if(ctx.parameters.is_array()) {
@@ -54,9 +58,10 @@ namespace {
         }
         else {
             // event handler or direct call invocation
-            std::tie(object_path, source_resource, destination_resource) = irods::extract_dataobj_inp_parameters(
-                                                                                 ctx.parameters
-                                                                               , irods::tag_first_resc);
+            std::tie(user_name, object_path, source_resource, destination_resource) =
+                irods::extract_dataobj_inp_parameters(
+                      ctx.parameters
+                    , irods::tag_first_resc);
         }
 
         auto comm = ctx.rei->rsComm;
@@ -65,6 +70,7 @@ namespace {
             // direct call invocation
             int err = replicate_object_to_resource(
                             comm
+                          , user_name
                           , object_path
                           , source_resource
                           , destination_resource);
@@ -90,6 +96,7 @@ namespace {
             if(!destination_resource.empty()) {
                 int err = replicate_object_to_resource(
                                 comm
+                              , user_name
                               , object_path
                               , source_resource
                               , destination_resource);
@@ -116,6 +123,7 @@ namespace {
                 for( auto& dest : destination_resources) {
                     int err = replicate_object_to_resource(
                                     comm
+                                  , user_name
                                   , object_path
                                   , source_resource
                                   , dest);
