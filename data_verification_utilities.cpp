@@ -4,9 +4,10 @@
 #include "irods_query.hpp"
 #include "irods_resource_manager.hpp"
 #include "physPath.hpp"
+#include "irods_server_api_call.hpp"
 #include "data_verification_utilities.hpp"
+#include "apiNumber.h"
 
-#include "rsDataObjChksum.hpp"
 #include "rsFileStat.hpp"
 
 #include <boost/lexical_cast.hpp>
@@ -27,17 +28,19 @@ namespace {
         rstrcpy(stat_inp.objPath,  _object_path.c_str(),  sizeof(stat_inp.objPath));
         rstrcpy(stat_inp.rescHier, _resource_hierarchy.c_str(), sizeof(stat_inp.rescHier));
         rstrcpy(stat_inp.fileName, _file_path.c_str(), sizeof(stat_inp.fileName));
+
         rodsStat_t *stat_out{};
-        const auto status_rsFileStat = rsFileStat(_comm, &stat_inp, &stat_out);
-        if(status_rsFileStat < 0) {
+        auto ret = irods::server_api_call(FILE_STAT_AN, _comm, &stat_inp, &stat_out);
+        if(ret < 0) {
+            free(stat_out);
             THROW(
-                status_rsFileStat,
+                ret,
                 boost::format("rsFileStat of objPath [%s] rescHier [%s] fileName [%s] failed with [%d]") %
                 stat_inp.objPath %
                 stat_inp.rescHier %
                 stat_inp.fileName %
-                status_rsFileStat);
-            return status_rsFileStat;
+                ret);
+            return ret;
         }
 
         const auto size_in_vault = stat_out->st_size;
@@ -57,11 +60,11 @@ namespace {
         }
 
         try {
-            std::vector<irods::resource_manager::leaf_bundle_t> leaf_bundles = 
+            std::vector<irods::resource_manager::leaf_bundle_t> leaf_bundles =
                 resc_mgr.gather_leaf_bundles_for_resc(_resource_name);
             for(const auto & bundle : leaf_bundles) {
                 for(const auto & leaf_id : bundle) {
-                    leaf_id_str += 
+                    leaf_id_str +=
                         "'" + boost::str(boost::format("%s") % leaf_id) + "',";
                 } // for
             } // for
@@ -128,17 +131,21 @@ namespace {
         rstrcpy(data_obj_inp.objPath, _object_path.c_str(), MAX_NAME_LEN);
         addKeyVal(&data_obj_inp.condInput, RESC_NAME_KW, _resource_name.c_str());
 
-        char* chksum{};
-        const auto chksum_err = rsDataObjChksum(_comm, &data_obj_inp, &chksum);
+        char* checksum_pointer{};
+        const auto chksum_err = irods::server_api_call(DATA_OBJ_CHKSUM_AN, _comm, &data_obj_inp, &checksum_pointer);
         if(chksum_err < 0) {
             THROW(
                 chksum_err,
-                boost::format("rsDataObjChksum failed for [%s] on [%s]") %
+                boost::format("checksum failed for [%s] on [%s]") %
                 _object_path %
                 _resource_name);
         }
 
-        return chksum;
+        std::string checksum{checksum_pointer};
+        free(checksum_pointer);
+
+        return checksum;
+
     } // compute_checksum_for_resource
 
     void capture_replica_attributes(
