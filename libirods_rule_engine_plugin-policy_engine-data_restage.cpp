@@ -30,6 +30,7 @@ namespace {
                       ctx.parameters
                     , irods::tag_last_resc);
         }
+
         irods::storage_tiering st{ctx.rei, ctx.instance_name};
         st.migrate_object_to_minimum_restage_tier(
               object_path

@@ -133,10 +133,11 @@ namespace irods {
     {
         std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
 
-        auto comm = _params["comm"];
-        user_name = extract_object_parameter<std::string>("proxy_user_name", comm);
+        auto comm_obj = _params["comm"];
+        user_name = extract_object_parameter<std::string>("proxy_user_name", comm_obj);
+
         if(user_name.empty()) {
-            user_name = extract_object_parameter<std::string>("user_name", comm);
+            user_name = extract_object_parameter<std::string>("user_name", _params);
         }
 
         object_path = extract_object_parameter<std::string>("obj_path", _params);

@@ -67,6 +67,7 @@ namespace {
         auto comm = ctx.rei->rsComm;
 
         if(!destination_resource.empty()) {
+
             // direct call invocation
             int err = replicate_object_to_resource(
                             comm
@@ -117,6 +118,7 @@ namespace {
                         boost::format("%s - destination_resource or source_to_destination_map not provided")
                         % ctx.policy_name);
                 }
+
                 auto dst_resc_arr{src_dst_map.at(source_resource)};
                 auto destination_resources = dst_resc_arr.get<std::vector<std::string>>();
                 irods::error ret{SUCCESS()};

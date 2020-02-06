@@ -1,6 +1,6 @@
 
 #include "policy_engine.hpp"
-
+#include "exec_as_user.hpp"
 #include "filesystem.hpp"
 
 #include "rsModAVUMetadata.hpp"
@@ -11,6 +11,7 @@
 namespace {
     int update_access_time_for_data_object(
           rsComm_t*          _comm
+        , const std::string& _user_name
         , const std::string& _logical_path
         , const std::string& _attribute) {
 
@@ -23,12 +24,16 @@ namespace {
             const_cast<char*>(ts.c_str()),
             ""};
 
-        return rsModAVUMetadata(_comm, &avuOp);
+        auto mod_fcn = [&](auto& comm) {
+            return rsModAVUMetadata(&comm, &avuOp);};
+
+        return irods::exec_as_user(*_comm, _user_name, mod_fcn);
 
     } // update_access_time_for_data_object
 
     int apply_access_time_to_collection(
           rsComm_t*          _comm
+        , const std::string& _user_name
         , int                _handle
         , const std::string& _attribute)
     {
@@ -38,7 +43,7 @@ namespace {
             if(DATA_OBJ_T == coll_ent->objType) {
                 using fsp = irods::experimental::filesystem::path;
                 auto  lp  = fsp{coll_ent->collName} / fsp{coll_ent->dataName};
-                err = update_access_time_for_data_object(_comm, lp.string(), _attribute);
+                err = update_access_time_for_data_object(_comm, _user_name, lp.string(), _attribute);
             }
             else if(COLL_OBJ_T == coll_ent->objType) {
                 collInp_t coll_inp;
@@ -48,7 +53,7 @@ namespace {
                     coll_ent->collName,
                     MAX_NAME_LEN);
                 int handle = rsOpenCollection(_comm, &coll_inp);
-                apply_access_time_to_collection(_comm, handle, _attribute);
+                apply_access_time_to_collection(_comm, _user_name, handle, _attribute);
                 rsCloseCollection(_comm, &handle);
             }
 
@@ -76,20 +81,20 @@ namespace {
             attribute = ctx.configuration["attribute"];
         }
 
-        std::string obj_path{ctx.parameters["obj_path"]};
-        if(obj_path.empty()) {
-            THROW(
-                SYS_INVALID_INPUT_PARAM,
-                "missing object path parameter");
-        }
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
+
+        std::tie(user_name, object_path, source_resource, destination_resource) =
+            irods::extract_dataobj_inp_parameters(
+                  ctx.parameters
+                , irods::tag_first_resc);
 
         if(!collection_operation) {
-            int status =  update_access_time_for_data_object(comm, obj_path, attribute);
+            int status =  update_access_time_for_data_object(comm, user_name, object_path, attribute);
             if(status < 0) {
                 return ERROR(
                            status,
                            boost::format("failed to update access time for object [%s]")
-                           % obj_path);
+                           % object_path);
             }
         }
         else {
@@ -98,22 +103,22 @@ namespace {
             memset(&coll_inp, 0, sizeof(coll_inp));
             rstrcpy(
                   coll_inp.collName
-                , obj_path.c_str()
+                , object_path.c_str()
                 , MAX_NAME_LEN);
             int handle = rsOpenCollection(comm, &coll_inp);
             if(handle < 0) {
                 return ERROR(
                            handle,
                            boost::format("failed to open collection [%s]") %
-                           obj_path);
+                           object_path);
             }
 
-            int status = apply_access_time_to_collection(comm, handle, attribute);
+            int status = apply_access_time_to_collection(comm, user_name, handle, attribute);
             if(status < 0) {
                 return ERROR(
                            status,
                            boost::format("failed to update access time for collection [%s]")
-                               % obj_path);
+                               % object_path);
             }
         }
 

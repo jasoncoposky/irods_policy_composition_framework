@@ -39,6 +39,7 @@ namespace {
 
     irods::error data_movement_policy(const pe::context& ctx)
     {
+
         std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
 
         // query processor invocation
@@ -69,15 +70,15 @@ namespace {
 
         apply_data_replication_policy(
               ctx.rei
-            , params.dump());
+            , ctx.parameters.dump());
 
         apply_data_verification_policy(
               ctx.rei
-            , params.dump());
+            , ctx.parameters.dump());
 
         apply_data_retention_policy(
               ctx.rei
-            , params.dump());
+            , ctx.parameters.dump());
 
         return SUCCESS();
 

@@ -653,17 +653,20 @@ namespace irods {
         const std::string& _verification_type,
         const bool         _preserve_replicas,
         const std::string& _data_movement_params) {
+
         if(object_has_migration_metadata_flag(_user_name, _object_path)) {
             return;
         }
 
         set_migration_metadata_flag_for_object(_user_name, _object_path);
+
         nlohmann::json rule_obj =
         {
             {"policy", "irods_policy_execute_rule"},
             {"payload", {
                     {"policy_to_invoke", policy::data_movement},
                     {"parameters", {
+                            {"user_name", _user_name},
                             {"group_name", _group_name},
                             {"object_path", _object_path},
                             {"source_resource", _source_resource},
@@ -688,6 +691,7 @@ namespace irods {
         rule_obj["preserve-replicas"]         = _preserve_replicas,
         rule_obj["verification-type"]         = _verification_type;
 #endif
+
         const auto delay_err = _delayExec(
                                    rule_obj.dump().c_str(),
                                    "",
