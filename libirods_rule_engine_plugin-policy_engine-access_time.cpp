@@ -2,6 +2,7 @@
 #include "policy_engine.hpp"
 #include "exec_as_user.hpp"
 #include "filesystem.hpp"
+#include "configuration_manager.hpp"
 
 #include "rsModAVUMetadata.hpp"
 #include "rsOpenCollection.hpp"
@@ -69,24 +70,23 @@ namespace {
 
     irods::error access_time_policy(const pe::context& ctx)
     {
-        auto comm = ctx.rei->rsComm;
-
-        auto cond_input = ctx.parameters["cond_input"];
-
-        bool collection_operation{!cond_input.empty() && !cond_input[COLLECTION_KW].empty()};
-
-        std::string attribute{"irods::access_time"};
-        if(!ctx.configuration.empty() &&
-           !ctx.configuration["attribute"].empty()) {
-            attribute = ctx.configuration["attribute"];
-        }
+        irods::configuration_manager cfg_mgr{ctx.instance_name, ctx.configuration};
 
         std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
+
+
+        auto cond_input = ctx.parameters["cond_input"];
+        bool collection_operation{!cond_input.empty() && !cond_input[COLLECTION_KW].empty()};
+
+        auto [err, attribute] = cfg_mgr.get_value("attribute", "irods::access_time");
+
 
         std::tie(user_name, object_path, source_resource, destination_resource) =
             irods::extract_dataobj_inp_parameters(
                   ctx.parameters
                 , irods::tag_first_resc);
+
+        auto comm = ctx.rei->rsComm;
 
         if(!collection_operation) {
             int status =  update_access_time_for_data_object(comm, user_name, object_path, attribute);

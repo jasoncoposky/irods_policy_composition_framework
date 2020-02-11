@@ -1,7 +1,7 @@
 
 #include "policy_engine.hpp"
 #include "exec_as_user.hpp"
-#include "plugin_configuration_json.hpp"
+#include "configuration_manager.hpp"
 #include "data_verification_utilities.hpp"
 
 namespace pe = irods::policy_engine;
@@ -9,7 +9,9 @@ namespace pe = irods::policy_engine;
 namespace {
     irods::error data_verification_policy(const pe::context& ctx)
     {
-        std::string user_name{}, object_path{}, source_resource{}, destination_resource{}, attribute{}, verification_type{}, unit{};
+        irods::configuration_manager cfg_mgr{ctx.instance_name, ctx.configuration};
+
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{}, verification_type{}, unit{};
 
         if(ctx.parameters.is_array()) {
             using fsp = irods::experimental::filesystem::path;
@@ -29,14 +31,9 @@ namespace {
                     , irods::tag_last_resc);
         }
 
+        auto [err, attribute] = cfg_mgr.get_value("attribute", "irods::verification::type");
+
         auto comm = ctx.rei->rsComm;
-
-        irods::plugin_configuration_json cfg{ctx.instance_name};
-
-        attribute = irods::extract_object_parameter<std::string>("attribute", cfg.plugin_configuration);
-        if(attribute.empty()) {
-            attribute = "irods::verification::type";
-        }
 
         std::tie(verification_type, unit) = irods::get_metadata_for_resource(comm, attribute, destination_resource);
 
