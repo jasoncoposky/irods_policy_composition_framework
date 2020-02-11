@@ -10,6 +10,9 @@
 namespace {
     namespace pe = irods::policy_engine;
 
+    const std::string irods_token_current_time{"IRODS_TOKEN_CURRENT_TIME"};
+    const std::string irods_token_lifetime{"IRODS_TOKEN_LIFETIME"};
+
     irods::error query_processor_policy(const pe::context& ctx)
     {
         try {
@@ -21,6 +24,19 @@ namespace {
             int number_of_threads{4};
             if(!ctx.parameters["number_of_threads"].empty()) {
                 number_of_threads = ctx.parameters["number_of_threads"];
+            }
+
+            size_t start_pos = query_string.find(irods_token_lifetime);
+            if(start_pos != std::string::npos) {
+
+                auto lifetime = irods::extract_object_parameter<int>("lifetime", ctx.configuration);
+
+                // add config to QP for deta T
+                // query processor could know about lifetimes?
+                query_string.replace(
+                    start_pos,
+                    irods_token_lifetime.length(),
+                    std::to_string(std::time(nullptr) - lifetime));
             }
 
             using json       = nlohmann::json;

@@ -96,7 +96,11 @@ namespace irods {
                             policy_context.configuration = json::parse(configuration_string);
                         }
 
-                        return policy_implementation(policy_context);
+                        auto err = policy_implementation(policy_context);
+                        if(!err.ok()) {
+rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
+                            THROW(err.code(), err.result());
+                        }
                     }
 
                 }
@@ -119,6 +123,7 @@ namespace irods {
                                _e.what());
                 }
                 catch(const exception& _e) {
+rodsLog(LOG_NOTICE, "XXXX - %s:%d :: [%d] [%s]", __FUNCTION__, __LINE__, _e.code(), _e.what());
                     exception_to_rerror(
                         _e,
                         rei->rsComm->rError);

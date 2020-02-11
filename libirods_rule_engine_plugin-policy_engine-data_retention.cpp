@@ -3,61 +3,65 @@
 #include "exec_as_user.hpp"
 #include "irods_server_api_call.hpp"
 #include "apiNumber.h"
-#include "plugin_configuration_json.hpp"
+#include "configuration_manager.hpp"
+
+#include "json.hpp"
 
 namespace pe = irods::policy_engine;
 
 namespace {
-    int trim_data_object(
-          rsComm_t*          _comm
+
+    struct mode {
+        static const std::string remove_all;
+        static const std::string trim_single;
+    };
+
+    const std::string mode::remove_all{"remove_all_replicas"};
+    const std::string mode::trim_single{"trim_single_replica"};
+
+    int remove_data_object(
+          int                _api_index
+        , rsComm_t*          _comm
         , const std::string& _user_name
         , const std::string& _object_path
         , const std::string& _source_resource)
     {
         dataObjInp_t obj_inp{};
-        rstrcpy(
-            obj_inp.objPath,
-            _object_path.c_str(),
-            sizeof(obj_inp.objPath));
-        addKeyVal(
-            &obj_inp.condInput,
-            RESC_NAME_KW,
-            _source_resource.c_str());
-        addKeyVal(
-            &obj_inp.condInput,
-            COPIES_KW,
-            "1");
+        rstrcpy(obj_inp.objPath, _object_path.c_str(), sizeof(obj_inp.objPath));
+        addKeyVal(&obj_inp.condInput, RESC_NAME_KW, _source_resource.c_str());
+        addKeyVal(&obj_inp.condInput, COPIES_KW, "1");
         if(_comm->clientUser.authInfo.authFlag >= LOCAL_PRIV_USER_AUTH) {
-            addKeyVal(
-                &obj_inp.condInput,
-                ADMIN_KW,
-                "true" );
+            addKeyVal(&obj_inp.condInput, ADMIN_KW, "true" );
         }
 
         auto trim_fcn = [&](auto& comm) {
-            return irods::server_api_call(DATA_OBJ_TRIM_AN, &comm, &obj_inp);};
+            return irods::server_api_call(_api_index, &comm, &obj_inp);
+        };
 
         return irods::exec_as_user(*_comm, _user_name, trim_fcn);
 
-    } // trim_data_object
+    } // remove_data_object
 
     irods::error data_retention_policy(const pe::context& ctx)
     {
-        std::string user_name{}, object_path{}, source_resource{}, attribute{};
+        irods::configuration_manager cfg_mgr{ctx.instance_name, ctx.configuration};
+
+        std::string mode{}, user_name{}, object_path{}, source_resource{}, attribute{};
 
         // query processor invocation
         if(ctx.parameters.is_array()) {
-            using fsp = irods::experimental::filesystem::path;
-
             std::string tmp_coll_name{}, tmp_data_name{};
 
-            std::tie(tmp_coll_name, tmp_data_name, source_resource) =
-                irods::extract_array_parameters<3, std::string>(ctx.parameters);
+            std::tie(user_name, tmp_coll_name, tmp_data_name, source_resource) =
+                irods::extract_array_parameters<4, std::string>(ctx.parameters);
+
+            using fsp = irods::experimental::filesystem::path;
 
             object_path = (fsp{tmp_coll_name} / fsp{tmp_data_name}).string();
         }
         else {
             std::string tmp_dst_resc;
+
             // event handler or direct call invocation
             std::tie(user_name, object_path, source_resource, tmp_dst_resc) =
                 irods::extract_dataobj_inp_parameters(
@@ -65,24 +69,41 @@ namespace {
                     , irods::tag_last_resc);
         }
 
+        auto err = SUCCESS();
+
+        std::tie(err, attribute) = cfg_mgr.get_value(
+                                         "attribute"
+                                       , "irods::retention::preserve_replicas");
+
         auto comm = ctx.rei->rsComm;
 
-        irods::plugin_configuration_json cfg{ctx.instance_name};
-
-        attribute = irods::extract_object_parameter<std::string>("attribute", cfg.plugin_configuration);
-        if(attribute.empty()) {
-            attribute = "irods::retention::preserve_replicas";
-        }
-
-        auto [preserve_replicas, unit] = irods::get_metadata_for_resource(comm, attribute, source_resource);
+        // if preserve_replicas is true, there is no work to do
+        auto [preserve_replicas, unit] = irods::get_metadata_for_resource(
+                                               comm
+                                             , attribute
+                                             , source_resource);
         if("true" == preserve_replicas) {
             return SUCCESS();
         }
 
-        const auto err = trim_data_object(comm, user_name, object_path, source_resource);
-        if(err < 0) {
+        std::tie(err, mode) = cfg_mgr.get_value("mode", "");
+        if(!err.ok()) {
+            return err;
+        }
+
+        const auto api_idx = mode::trim_single == mode
+                             ? DATA_OBJ_TRIM_AN
+                             : DATA_OBJ_UNLINK_AN;
+
+        const auto ret = remove_data_object(
+                               api_idx
+                             , comm
+                             , user_name
+                             , object_path
+                             , source_resource);
+        if(ret < 0) {
             return ERROR(
-                       err,
+                       ret,
                        boost::format("failed to trim [%s] from [%s]")
                        % object_path
                        % source_resource);
