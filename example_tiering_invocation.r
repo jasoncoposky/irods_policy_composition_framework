@@ -1,6 +1,6 @@
 {
 	"policy" : "irods_policy_enqueue_rule",
-        "delay_conditions" : "<EF>REPEAT FOR EVER</EF>",
+        "delay_conditions" : "",
 	"payload" : {
 	    "policy" : "irods_policy_execute_rule",
             "payload" : {

@@ -35,6 +35,7 @@ namespace {
         irods::storage_tiering st{ctx.rei, ctx.instance_name};
 
         for(auto& g : tier_groups) {
+rodsLog(LOG_NOTICE, "Applying Policy for group [%s]", g.c_str());
             st.apply_policy_for_tier_group(g);
         }
 

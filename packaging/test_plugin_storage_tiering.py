@@ -23,6 +23,108 @@ from .. import paths
 from .. import lib
 import ustrings
 
+
+def insert_plugins(irods_config, without=""):
+    irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+        {
+            "instance_name": "irods_rule_engine_plugin-event_handler-data_object_modified-instance",
+            "plugin_name": "irods_rule_engine_plugin-event_handler-data_object_modified",
+            "plugin_specific_configuration": {
+                "policies_to_invoke" : [
+                    {    "pre_or_post_invocation" : ["post"],
+                        "events" : ["create", "read", "write", "rename", "registration", "replication"],
+                        "policy"    : "irods_policy_access_time",
+                        "configuration" : {
+                            }
+                        },
+
+                    {    "pre_or_post_invocation" : ["post"],
+                        "events" : ["read", "write", "get"],
+                        "policy"    : "irods_policy_data_restage",
+                        "configuration" : {
+                            }
+                        },
+
+                    {    "pre_or_post_invocation" : ["post"],
+                        "events" : ["replication"],
+                        "policy"    : "irods_policy_tier_group_metadata",
+                        "configuration" : {
+                            }
+
+                        }
+                    ]
+            }
+        }
+    )
+
+    irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+        {
+            "instance_name": "irods_rule_engine_plugin-policy_engine-tier_group_metadata-instance",
+            "plugin_name": "irods_rule_engine_plugin-policy_engine-tier_group_metadata",
+            "plugin_specific_configuration": {
+            }
+        }
+    )
+
+    irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+        {
+            "instance_name": "irods_rule_engine_plugin-policy_engine-data_movement-instance",
+            "plugin_name": "irods_rule_engine_plugin-policy_engine-data_movement",
+            "plugin_specific_configuration": {
+                }
+        }
+    )
+
+    irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+        {
+            "instance_name": "irods_rule_engine_plugin-policy_engine-data_restage-instance",
+            "plugin_name": "irods_rule_engine_plugin-policy_engine-data_restage",
+            "plugin_specific_configuration": {
+                }
+        }
+    )
+
+    if("replication" != without):
+        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+            {
+                "instance_name": "irods_rule_engine_plugin-policy_engine-data_replication-instance",
+                "plugin_name": "irods_rule_engine_plugin-policy_engine-data_replication",
+                "plugin_specific_configuration": {
+                    }
+            }
+        )
+
+    if("verification" != without):
+        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+            {
+                "instance_name": "irods_rule_engine_plugin-policy_engine-data_verification-instance",
+                "plugin_name": "irods_rule_engine_plugin-policy_engine-data_verification",
+                "plugin_specific_configuration": {
+                    }
+            }
+        )
+
+    if("retention" != without):
+        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+            {
+                "instance_name": "irods_rule_engine_plugin-policy_engine-data_retention-instance",
+                "plugin_name": "irods_rule_engine_plugin-policy_engine-data_retention",
+                "plugin_specific_configuration": {
+                    "mode" : "trim_single_replica"
+                }
+            }
+        )
+
+    if("access_time" != without):
+        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+           {
+                "instance_name": "irods_rule_engine_plugin-policy_engine-access_time-instance",
+                "plugin_name": "irods_rule_engine_plugin-policy_engine-access_time",
+                "plugin_specific_configuration": {
+                    }
+           }
+        )
+
 @contextlib.contextmanager
 def storage_tiering_configured_custom(arg=None):
     filename = paths.server_config_path()
@@ -30,10 +132,12 @@ def storage_tiering_configured_custom(arg=None):
         irods_config = IrodsConfig()
         irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
 
+        insert_plugins(irods_config)
+
         irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
             {
-                "instance_name" : "irods_rule_engine_plugin-storage_tiering-instance",
-                "plugin_name" : "irods_rule_engine_plugin-storage_tiering",
+                "instance_name" : "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
+                "plugin_name" : "irods_rule_engine_plugin-policy_engine-storage_tiering",
                 "plugin_specific_configuration" : {
                     "access_time_attribute" : "irods::custom_access_time",
                     "group_attribute" : "irods::custom_storage_tiering::group",
@@ -44,42 +148,6 @@ def storage_tiering_configured_custom(arg=None):
 
                     "default_restage_delay_parameters" : "<PLUSET>1s</PLUSET>",
                     "time_check_string" : "TIME_CHECK_STRING"
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_verification-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_verification",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_replication-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_replication",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_movement-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_movement",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-apply_access_time-instance",
-                "plugin_name": "irods_rule_engine_plugin-apply_access_time",
-                "plugin_specific_configuration": {
                 }
             }
         )
@@ -97,48 +165,14 @@ def storage_tiering_configured(arg=None):
         irods_config = IrodsConfig()
         irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
 
+        insert_plugins(irods_config)
+
         irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
             {
-                "instance_name": "irods_rule_engine_plugin-storage_tiering-instance",
-                "plugin_name": "irods_rule_engine_plugin-storage_tiering",
+                "instance_name": "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
+                "plugin_name": "irods_rule_engine_plugin-policy_engine-storage_tiering",
                 "plugin_specific_configuration": {
                     "data_transfer_log_level" : "LOG_NOTICE"
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_verification-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_verification",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_replication-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_replication",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_movement-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_movement",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-apply_access_time-instance",
-                "plugin_name": "irods_rule_engine_plugin-apply_access_time",
-                "plugin_specific_configuration": {
                 }
             }
         )
@@ -156,102 +190,18 @@ def storage_tiering_configured_with_log(arg=None):
         irods_config = IrodsConfig()
         irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
 
+        insert_plugins(irods_config)
+
         irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
             {
-                "instance_name": "irods_rule_engine_plugin-storage_tiering-instance",
-                "plugin_name": "irods_rule_engine_plugin-storage_tiering",
+                "instance_name": "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
+                "plugin_name": "irods_rule_engine_plugin-policy_engine-storage_tiering",
                 "plugin_specific_configuration": {
                     "data_transfer_log_level" : "LOG_NOTICE"
                 }
             }
         )
 
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_verification-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_verification",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_replication-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_replication",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_movement-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_movement",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-apply_access_time-instance",
-                "plugin_name": "irods_rule_engine_plugin-apply_access_time",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.commit(irods_config.server_config, irods_config.server_config_path)
-
-        try:
-            yield
-        finally:
-            pass
-
-@contextlib.contextmanager
-def storage_tiering_configured_without_replication(arg=None):
-    filename = paths.server_config_path()
-    with lib.file_backed_up(filename):
-        irods_config = IrodsConfig()
-        irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-storage_tiering-instance",
-                "plugin_name": "irods_rule_engine_plugin-storage_tiering",
-                "plugin_specific_configuration": {
-                    "data_transfer_log_level": "LOG_NOTICE"
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_verification-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_verification",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_movement-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_movement",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-apply_access_time-instance",
-                "plugin_name": "irods_rule_engine_plugin-apply_access_time",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
 
         irods_config.commit(irods_config.server_config, irods_config.server_config_path)
         try:
@@ -259,104 +209,79 @@ def storage_tiering_configured_without_replication(arg=None):
         finally:
             pass
 
-@contextlib.contextmanager
-def storage_tiering_configured_without_verification(arg=None):
-    filename = paths.server_config_path()
-    with lib.file_backed_up(filename):
-        irods_config = IrodsConfig()
-        irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
+#@contextlib.contextmanager
+#def storage_tiering_configured_without_replication(arg=None):
+#    filename = paths.server_config_path()
+#    with lib.file_backed_up(filename):
+#        irods_config = IrodsConfig()
+#        irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
+#
+#        insert_plugins(irods_config, "replication")
+#
+#        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+#            {
+#                "instance_name": "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
+#                "plugin_name": "irods_rule_engine_plugin-policy_engine-storage_tiering",
+#                "plugin_specific_configuration": {
+#                    "data_transfer_log_level": "LOG_NOTICE"
+#                }
+#            }
+#        )
+#
+#        irods_config.commit(irods_config.server_config, irods_config.server_config_path)
+#        try:
+#            yield
+#        finally:
+#            pass
 
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-storage_tiering-instance",
-                "plugin_name": "irods_rule_engine_plugin-storage_tiering",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
+#@contextlib.contextmanager
+#def storage_tiering_configured_without_verification(arg=None):
+#    filename = paths.server_config_path()
+#    with lib.file_backed_up(filename):
+#        irods_config = IrodsConfig()
+#        irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
+#
+#        insert_plugins(irods_config, "verification")
+#
+#        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+#            {
+#                "instance_name": "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
+#                "plugin_name": "irods_rule_engine_plugin-policy_engine-storage_tiering",
+#                "plugin_specific_configuration": {
+#                }
+#            }
+#        )
+#
+#        irods_config.commit(irods_config.server_config, irods_config.server_config_path)
+#        try:
+#            yield
+#        finally:
+#            pass
 
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_replication-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_replication",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_movement-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_movement",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-apply_access_time-instance",
-                "plugin_name": "irods_rule_engine_plugin-apply_access_time",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.commit(irods_config.server_config, irods_config.server_config_path)
-        try:
-            yield
-        finally:
-            pass
-
-@contextlib.contextmanager
-def storage_tiering_configured_without_access_time(arg=None):
-    filename = paths.server_config_path()
-    with lib.file_backed_up(filename):
-        irods_config = IrodsConfig()
-        irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-storage_tiering-instance",
-                "plugin_name": "irods_rule_engine_plugin-storage_tiering",
-                "plugin_specific_configuration": {
-                    "data_transfer_log_level" : "LOG_NOTICE"
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_verification-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_verification",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_replication-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_replication",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
-            {
-                "instance_name": "irods_rule_engine_plugin-data_movement-instance",
-                "plugin_name": "irods_rule_engine_plugin-data_movement",
-                "plugin_specific_configuration": {
-                }
-            }
-        )
-
-        irods_config.commit(irods_config.server_config, irods_config.server_config_path)
-        try:
-            yield
-        finally:
-            pass
+#@contextlib.contextmanager
+#def storage_tiering_configured_without_access_time(arg=None):
+#    filename = paths.server_config_path()
+#    with lib.file_backed_up(filename):
+#        irods_config = IrodsConfig()
+#        irods_config.server_config['advanced_settings']['rule_engine_server_sleep_time_in_seconds'] = 1
+#
+#        insert_plugins(irods_config, "access_time")
+#
+#        irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
+#            {
+#                "instance_name": "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
+#                "plugin_name": "irods_rule_engine_plugin-policy_engine-storage_tiering",
+#                "plugin_specific_configuration": {
+#                    "data_transfer_log_level" : "LOG_NOTICE"
+#                }
+#            }
+#        )
+#
+#        irods_config.commit(irods_config.server_config, irods_config.server_config_path)
+#        try:
+#            yield
+#        finally:
+#            pass
 
 def wait_for_empty_queue(function):
     done = False
