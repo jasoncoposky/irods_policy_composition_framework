@@ -117,9 +117,12 @@ namespace {
                         auto cfg{policy["configuration"]};
                         std::string pn{policy["policy"]};
 
+                        std::string params = _obj_json_str;
+                        std::string config = cfg.dump();
+
                         args.clear();
-                        args.push_back(boost::any(_obj_json_str));
-                        args.push_back(boost::any(cfg.dump()));
+                        args.push_back(boost::any(std::ref(params)));
+                        args.push_back(boost::any(std::ref(config)));
 
                         irods::invoke_policy(_rei, pn, args);
                     } // for ops

@@ -48,9 +48,11 @@ namespace {
                     res_arr.push_back(r);
                 }
 
+                std::string params = res_arr.dump();
+                std::string config = ctx.configuration.dump();
                 std::list<boost::any> arguments;
-                arguments.push_back(boost::any(res_arr.dump()));
-                arguments.push_back(boost::any(ctx.configuration.dump()));
+                arguments.push_back(boost::any(std::ref(params)));
+                arguments.push_back(boost::any(std::ref(config)));
                 irods::invoke_policy(ctx.rei, policy_to_invoke, arguments);
             }; // job
 

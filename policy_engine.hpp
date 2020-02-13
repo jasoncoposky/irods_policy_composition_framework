@@ -17,6 +17,7 @@ namespace irods {
 
         struct context {
             ruleExecInfo_t* rei{};
+            std::string     usage_text{};
             std::string     instance_name{};
             std::string     policy_name{};
             std::string     policy_usage{};
@@ -24,6 +25,7 @@ namespace irods {
             json            configuration{};
         }; // struct context
 
+        using arg_type            = std::reference_wrapper<std::string>;
         using plugin_type         = pluggable_rule_engine<irods::default_re_ctx>;
         using plugin_pointer_type = plugin_type*;
         using implementation_type = std::function<error(const context&)>;
@@ -36,10 +38,8 @@ namespace irods {
                   default_re_ctx&
                 , const std::string&)
             {
-                std::string regex{policy_context.policy_name
-                                  + "||"
-                                  + policy_context.policy_usage};
-                RuleExistsHelper::Instance()->registerRuleRegex(regex);
+                RuleExistsHelper::Instance()->registerRuleRegex(
+                    policy_context.policy_name + ".*");
                 return SUCCESS();
             }
 
@@ -110,25 +110,27 @@ namespace irods {
                 try {
                     if(policy_context.policy_usage == _rule_name) {
                         auto it = _arguments.begin();
-                        std::string& usage{boost::any_cast<std::string&>(*it)};
-                        usage = policy_context.policy_usage;
+                        auto parameter_string{ boost::any_cast<arg_type>(*it) }; ++it;
+
+                        parameter_string.get() = policy_context.usage_text;
+
                         return SUCCESS();
                     }
                     else if(policy_context.policy_name == _rule_name) {
                         policy_context.rei = rei;
 
                         auto it = _arguments.begin();
-                        std::string parameter_string{ boost::any_cast<std::string>(*it) }; ++it;
-                        std::string configuration_string{ boost::any_cast<std::string>(*it) };
+                        auto parameter_string{ boost::any_cast<arg_type>(*it) }; ++it;
+                        auto configuration_string{ boost::any_cast<arg_type>(*it) };
 
                         bool log_errors = false;
 
-                        if(!parameter_string.empty()) {
-                            policy_context.parameters = json::parse(parameter_string);
+                        if(!parameter_string.get().empty()) {
+                            policy_context.parameters = json::parse(parameter_string.get());
                         }
 
-                        if(!configuration_string.empty()) {
-                            policy_context.configuration = json::parse(configuration_string);
+                        if(!configuration_string.get().empty()) {
+                            policy_context.configuration = json::parse(configuration_string.get());
                         }
 
                         log_errors = get_log_errors_flag(
@@ -216,16 +218,17 @@ namespace irods {
         plugin_pointer_type make(
                 const std::string&  _plugin_name
               , const std::string&  _policy_name
-              , const std::string&  _policy_usage
+              , const std::string&  _usage_text
               , implementation_type _policy_implementation)
         {
 
             policy_implementation        = _policy_implementation;
+            policy_context.usage_text    = _usage_text;
             policy_context.policy_name   = _policy_name;
             policy_context.policy_usage  = _policy_name + "_usage";
             policy_context.instance_name = _plugin_name;
 
-            auto rule_engine_plugin = new plugin_type(policy_context.instance_name, _policy_usage);
+            auto rule_engine_plugin = new plugin_type(policy_context.instance_name, "");
 
             rule_engine_plugin->add_operation<
                 irods::default_re_ctx&,
