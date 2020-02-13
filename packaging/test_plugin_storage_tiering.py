@@ -62,6 +62,7 @@ def insert_plugins(irods_config, without=""):
             "instance_name": "irods_rule_engine_plugin-policy_engine-tier_group_metadata-instance",
             "plugin_name": "irods_rule_engine_plugin-policy_engine-tier_group_metadata",
             "plugin_specific_configuration": {
+                    "log_errors" : "true"
             }
         }
     )
@@ -71,7 +72,8 @@ def insert_plugins(irods_config, without=""):
             "instance_name": "irods_rule_engine_plugin-policy_engine-data_movement-instance",
             "plugin_name": "irods_rule_engine_plugin-policy_engine-data_movement",
             "plugin_specific_configuration": {
-                }
+                    "log_errors" : "true"
+            }
         }
     )
 
@@ -80,7 +82,8 @@ def insert_plugins(irods_config, without=""):
             "instance_name": "irods_rule_engine_plugin-policy_engine-data_restage-instance",
             "plugin_name": "irods_rule_engine_plugin-policy_engine-data_restage",
             "plugin_specific_configuration": {
-                }
+                    "log_errors" : "true"
+            }
         }
     )
 
@@ -90,7 +93,8 @@ def insert_plugins(irods_config, without=""):
                 "instance_name": "irods_rule_engine_plugin-policy_engine-data_replication-instance",
                 "plugin_name": "irods_rule_engine_plugin-policy_engine-data_replication",
                 "plugin_specific_configuration": {
-                    }
+                    "log_errors" : "true"
+                }
             }
         )
 
@@ -100,7 +104,8 @@ def insert_plugins(irods_config, without=""):
                 "instance_name": "irods_rule_engine_plugin-policy_engine-data_verification-instance",
                 "plugin_name": "irods_rule_engine_plugin-policy_engine-data_verification",
                 "plugin_specific_configuration": {
-                    }
+                    "log_errors" : "true"
+                }
             }
         )
 
@@ -110,7 +115,8 @@ def insert_plugins(irods_config, without=""):
                 "instance_name": "irods_rule_engine_plugin-policy_engine-data_retention-instance",
                 "plugin_name": "irods_rule_engine_plugin-policy_engine-data_retention",
                 "plugin_specific_configuration": {
-                    "mode" : "trim_single_replica"
+                    "mode" : "trim_single_replica",
+                    "log_errors" : "true"
                 }
             }
         )
@@ -121,7 +127,8 @@ def insert_plugins(irods_config, without=""):
                 "instance_name": "irods_rule_engine_plugin-policy_engine-access_time-instance",
                 "plugin_name": "irods_rule_engine_plugin-policy_engine-access_time",
                 "plugin_specific_configuration": {
-                    }
+                    "log_errors" : "true"
+                }
            }
         )
 
@@ -147,7 +154,8 @@ def storage_tiering_configured_custom(arg=None):
                     "restage_delay_attribute" : "irods::custom_storage_tiering::restage_delay",
 
                     "default_restage_delay_parameters" : "<PLUSET>1s</PLUSET>",
-                    "time_check_string" : "TIME_CHECK_STRING"
+                    "time_check_string" : "TIME_CHECK_STRING",
+                    "log_errors" : "true"
                 }
             }
         )
@@ -172,7 +180,8 @@ def storage_tiering_configured(arg=None):
                 "instance_name": "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
                 "plugin_name": "irods_rule_engine_plugin-policy_engine-storage_tiering",
                 "plugin_specific_configuration": {
-                    "data_transfer_log_level" : "LOG_NOTICE"
+                    "data_transfer_log_level" : "LOG_NOTICE",
+                    "log_errors" : "true"
                 }
             }
         )
@@ -197,7 +206,8 @@ def storage_tiering_configured_with_log(arg=None):
                 "instance_name": "irods_rule_engine_plugin-policy_engine-storage_tiering-instance",
                 "plugin_name": "irods_rule_engine_plugin-policy_engine-storage_tiering",
                 "plugin_specific_configuration": {
-                    "data_transfer_log_level" : "LOG_NOTICE"
+                    "data_transfer_log_level" : "LOG_NOTICE",
+                    "log_errors" : "true"
                 }
             }
         )

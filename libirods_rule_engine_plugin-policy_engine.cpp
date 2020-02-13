@@ -3,6 +3,44 @@
 
 namespace pe = irods::policy_engine;
 
+
+const char usage[] = R"(
+{
+    "id": "file:///var/lib/irods/configuration_schemas/v3/policy_engine_usage.json",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+        "description": {"type": "string"},
+        "input_interfaces": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "enum": [
+                        "event_handler-collection_modified",
+                        "event_handler-data_object_modified",
+                        "event_handler-metadata_modified",
+                        "event_handler-user_modified",
+                        "event_handler-resource_modified",
+                        "direct_invocation",
+                        "query_results"
+                    ]},
+                    "description": {"type": "string"},
+                    "json_schema": {"type": "string"}
+                },
+                "required": ["name","description","json_schema"]
+            }
+        },
+        "output_json_for_validation": {"type": "string"}
+    },
+    "required": [
+        "description",
+        "input_interfaces",
+        "output_json_for_validation"
+    ]
+}
+)";
+
 irods::error example_policy(const pe::context& ctx)
 {
     //  struct context {
@@ -25,6 +63,10 @@ pe::plugin_pointer_type plugin_factory(
       const std::string& _plugin_name
     , const std::string&) {
 
-    return pe::make(_plugin_name, "irods_policy_engine_example", example_policy);
+    return pe::make(
+                 _plugin_name
+               , "irods_policy_engine_example"
+               , usage
+               , example_policy);
 
 } // plugin_factory

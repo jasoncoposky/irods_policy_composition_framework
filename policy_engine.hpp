@@ -19,6 +19,7 @@ namespace irods {
             ruleExecInfo_t* rei{};
             std::string     instance_name{};
             std::string     policy_name{};
+            std::string     policy_usage{};
             json            parameters{};
             json            configuration{};
         }; // struct context
@@ -35,7 +36,10 @@ namespace irods {
                   default_re_ctx&
                 , const std::string&)
             {
-                RuleExistsHelper::Instance()->registerRuleRegex(policy_context.policy_name);
+                std::string regex{policy_context.policy_name
+                                  + "||"
+                                  + policy_context.policy_usage};
+                RuleExistsHelper::Instance()->registerRuleRegex(regex);
                 return SUCCESS();
             }
 
@@ -47,7 +51,8 @@ namespace irods {
 
             auto rule_name_is_supported(const std::string& _rule_name)
             {
-                return (policy_context.policy_name == _rule_name);
+                return (policy_context.policy_name  == _rule_name ||
+                        policy_context.policy_usage == _rule_name);
             } // rule_name_is_supported
 
             error rule_exists(
@@ -64,8 +69,28 @@ namespace irods {
                 , std::vector<std::string>& _rules)
             {
                 _rules.push_back(policy_context.policy_name);
+                _rules.push_back(policy_context.policy_usage);
                 return SUCCESS();
             }
+
+            bool get_log_errors_flag(
+                  const json& _params
+                , const json& _config)
+            {
+                bool flag = false;
+                if(!_params.empty()) {
+                    flag = (_params.find("log_errors") !=
+                            _params.end());
+                }
+
+                if(!flag && !_config.empty()) {
+                    flag = (_config.find("log_errors") !=
+                            _config.end());
+                }
+
+                return flag;
+
+            } // get_log_errors_flag
 
             error exec_rule(
                 default_re_ctx&
@@ -80,13 +105,23 @@ namespace irods {
                     return ERROR(SYS_NOT_SUPPORTED, err.result());
                 }
 
+                bool log_errors = false;
+
                 try {
-                    if(policy_context.policy_name == _rule_name) {
+                    if(policy_context.policy_usage == _rule_name) {
+                        auto it = _arguments.begin();
+                        std::string& usage{boost::any_cast<std::string&>(*it)};
+                        usage = policy_context.policy_usage;
+                        return SUCCESS();
+                    }
+                    else if(policy_context.policy_name == _rule_name) {
                         policy_context.rei = rei;
 
                         auto it = _arguments.begin();
                         std::string parameter_string{ boost::any_cast<std::string>(*it) }; ++it;
                         std::string configuration_string{ boost::any_cast<std::string>(*it) };
+
+                        bool log_errors = false;
 
                         if(!parameter_string.empty()) {
                             policy_context.parameters = json::parse(parameter_string);
@@ -96,15 +131,21 @@ namespace irods {
                             policy_context.configuration = json::parse(configuration_string);
                         }
 
+                        log_errors = get_log_errors_flag(
+                                           policy_context.parameters
+                                         , policy_context.configuration);
+
                         auto err = policy_implementation(policy_context);
+
                         if(!err.ok()) {
-rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
+                            if(log_errors) { irods::log(err); }
                             THROW(err.code(), err.result());
                         }
                     }
 
                 }
                 catch(const std::invalid_argument& _e) {
+                    if(log_errors) { irods::log(err); }
                     exception_to_rerror(
                         SYS_NOT_SUPPORTED,
                         _e.what(),
@@ -114,6 +155,7 @@ rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
                                _e.what());
                 }
                 catch(const boost::bad_any_cast& _e) {
+                    if(log_errors) { irods::log(err); }
                     exception_to_rerror(
                         SYS_NOT_SUPPORTED,
                         _e.what(),
@@ -123,7 +165,7 @@ rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
                                _e.what());
                 }
                 catch(const exception& _e) {
-rodsLog(LOG_NOTICE, "XXXX - %s:%d :: [%d] [%s]", __FUNCTION__, __LINE__, _e.code(), _e.what());
+                    if(log_errors) { irods::log(err); }
                     exception_to_rerror(
                         _e,
                         rei->rsComm->rError);
@@ -174,14 +216,16 @@ rodsLog(LOG_NOTICE, "XXXX - %s:%d :: [%d] [%s]", __FUNCTION__, __LINE__, _e.code
         plugin_pointer_type make(
                 const std::string&  _plugin_name
               , const std::string&  _policy_name
+              , const std::string&  _policy_usage
               , implementation_type _policy_implementation)
         {
 
             policy_implementation        = _policy_implementation;
             policy_context.policy_name   = _policy_name;
+            policy_context.policy_usage  = _policy_name + "_usage";
             policy_context.instance_name = _plugin_name;
 
-            auto rule_engine_plugin = new plugin_type(policy_context.instance_name, {});
+            auto rule_engine_plugin = new plugin_type(policy_context.instance_name, _policy_usage);
 
             rule_engine_plugin->add_operation<
                 irods::default_re_ctx&,

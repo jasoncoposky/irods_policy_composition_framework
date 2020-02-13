@@ -6,7 +6,8 @@
             "payload" : {
 	        "policy_to_invoke" : "irods_policy_storage_tiering",
                 "parameters" : {
-                    "tier_groups" : ["example_group" ]
+                    "tier_groups" : ["example_group" ],
+                    "log_errors" : "true"
                  },
                  "configuration" : {
                  }

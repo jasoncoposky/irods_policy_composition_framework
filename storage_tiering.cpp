@@ -369,6 +369,17 @@ namespace irods {
                         config_.group_attribute)};
             query<rsComm_t> qobj{comm_, query_str};
             for(const auto& g : qobj) {
+                auto idnx = g[0];
+                auto name = g[1];
+                if(groups.find(name) != groups.end()) {
+                    THROW(
+                        SYS_INVALID_INPUT_PARAM,
+                        boost::format("conflicting tier group indicies for index [%s] with resources [%s] [%s]")
+                        % idnx
+                        % name
+                        % g[1]);
+                }
+
                 groups[g[0]] = g[1];
             }
 
