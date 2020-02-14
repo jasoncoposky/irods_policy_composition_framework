@@ -33,7 +33,7 @@ namespace {
     { "pep_api_data_obj_unlink_pre",   "UNLINK" },
     { "pep_api_data_obj_rename_pre",   "RENAME" },
     { "pep_api_phy_path_reg_pre",      "REGISTER" },
-
+// TODO:: TRIM EVENT?
     { "pep_api_data_obj_put_post",      "CREATE" },
     { "pep_api_bulk_data_obj_put_post", "CREATE" },
     { "pep_api_data_obj_get_post",      "READ" },
