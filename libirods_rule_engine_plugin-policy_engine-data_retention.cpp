@@ -91,22 +91,32 @@ namespace {
             return err;
         }
 
+        std::vector<std::string> src_resc_vec{};
+        std::tie(err, src_resc_vec) = cfg_mgr.get_value("source_resource_list", src_resc_vec);
+        if(!err.ok()) {
+            src_resc_vec.push_back(source_resource);
+        }
+
         const auto api_idx = mode::trim_single == mode
                              ? DATA_OBJ_TRIM_AN
                              : DATA_OBJ_UNLINK_AN;
 
-        const auto ret = remove_data_object(
-                               api_idx
-                             , comm
-                             , user_name
-                             , object_path
-                             , source_resource);
-        if(ret < 0) {
-            return ERROR(
-                       ret,
-                       boost::format("failed to trim [%s] from [%s]")
-                       % object_path
-                       % source_resource);
+        for(const auto& src : src_resc_vec) {
+            if(src == source_resource) {
+                const auto ret = remove_data_object(
+                                       api_idx
+                                     , comm
+                                     , user_name
+                                     , object_path
+                                     , source_resource);
+                if(ret < 0) {
+                    return ERROR(
+                               ret,
+                               boost::format("failed to trim [%s] from [%s]")
+                               % object_path
+                               % source_resource);
+                }
+            }
         }
 
         return SUCCESS();
