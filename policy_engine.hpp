@@ -5,7 +5,7 @@
 #include "irods_re_ruleexistshelper.hpp"
 #include "rcMisc.h"
 #include <boost/any.hpp>
-#include "utilities.hpp"
+#include "policy_engine_utilities.hpp"
 
 #include "json.hpp"
 
