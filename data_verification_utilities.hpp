@@ -10,6 +10,8 @@ namespace irods {
         const std::string& _source_resource,
         const std::string& _destination_resource);
 
+    std::string get_leaf_resources_string(const std::string&);
+
 } // namespace irods
 
 

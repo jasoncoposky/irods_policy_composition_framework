@@ -2,7 +2,7 @@
 #include "policy_engine.hpp"
 #include "exec_as_user.hpp"
 #include "filesystem.hpp"
-#include "configuration_manager.hpp"
+#include "policy_engine_configuration_manager.hpp"
 
 #include "rsModAVUMetadata.hpp"
 #include "rsOpenCollection.hpp"
@@ -70,7 +70,7 @@ namespace {
 
     irods::error access_time_policy(const pe::context& ctx)
     {
-        irods::configuration_manager cfg_mgr{ctx.instance_name, ctx.configuration};
+        pe::configuration_manager cfg_mgr{ctx.instance_name, ctx.configuration};
 
         std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
 

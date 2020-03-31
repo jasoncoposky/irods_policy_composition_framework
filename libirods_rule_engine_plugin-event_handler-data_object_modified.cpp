@@ -4,7 +4,7 @@
 #include "irods_plugin_context.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "data_object_modified_utilities.hpp"
-#include "plugin_configuration_json.hpp"
+#include "rule_engine_plugin_configuration_json.hpp"
 #include "rcMisc.h"
 
 #include <boost/any.hpp>

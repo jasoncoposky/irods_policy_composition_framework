@@ -48,43 +48,6 @@ namespace {
         return size_in_vault;
     } // get_file_size_from_filesystem
 
-    std::string get_leaf_resources_string(
-        const std::string& _resource_name) {
-        std::string leaf_id_str;
-
-        // if the resource has no children then simply return
-        irods::resource_ptr root_resc;
-        irods::error err = resc_mgr.resolve(_resource_name, root_resc);
-        if(!err.ok()) {
-            THROW(err.code(), err.result());
-        }
-
-        try {
-            std::vector<irods::resource_manager::leaf_bundle_t> leaf_bundles =
-                resc_mgr.gather_leaf_bundles_for_resc(_resource_name);
-            for(const auto & bundle : leaf_bundles) {
-                for(const auto & leaf_id : bundle) {
-                    leaf_id_str +=
-                        "'" + boost::str(boost::format("%s") % leaf_id) + "',";
-                } // for
-            } // for
-        }
-        catch( const irods::exception & _e ) {
-            throw;
-        }
-
-        // if there is no hierarchy
-        if(leaf_id_str.empty()) {
-            rodsLong_t resc_id;
-            resc_mgr.hier_to_leaf_id(_resource_name, resc_id);
-            leaf_id_str =
-                "'" + boost::str(boost::format("%s") % resc_id) + "',";
-        }
-
-        return leaf_id_str;
-
-    } // get_leaf_resources_string
-
     void get_object_and_collection_from_path(
         const std::string& _object_path,
         std::string&       _collection_name,
@@ -181,6 +144,43 @@ namespace {
 
 
 namespace irods {
+
+    std::string get_leaf_resources_string(
+        const std::string& _resource_name) {
+        std::string leaf_id_str;
+
+        // if the resource has no children then simply return
+        irods::resource_ptr root_resc;
+        irods::error err = resc_mgr.resolve(_resource_name, root_resc);
+        if(!err.ok()) {
+            THROW(err.code(), err.result());
+        }
+
+        try {
+            std::vector<irods::resource_manager::leaf_bundle_t> leaf_bundles =
+                resc_mgr.gather_leaf_bundles_for_resc(_resource_name);
+            for(const auto & bundle : leaf_bundles) {
+                for(const auto & leaf_id : bundle) {
+                    leaf_id_str +=
+                        "'" + boost::str(boost::format("%s") % leaf_id) + "',";
+                } // for
+            } // for
+        }
+        catch( const irods::exception & _e ) {
+            throw;
+        }
+
+        // if there is no hierarchy
+        if(leaf_id_str.empty()) {
+            rodsLong_t resc_id;
+            resc_mgr.hier_to_leaf_id(_resource_name, resc_id);
+            leaf_id_str =
+                "'" + boost::str(boost::format("%s") % resc_id) + "',";
+        }
+
+        return leaf_id_str;
+
+    } // get_leaf_resources_string
 
     bool verify_replica_for_destination_resource(
         rsComm_t*          _comm,

@@ -3,9 +3,12 @@
 #include "irods_exception.hpp"
 #include "irods_query.hpp"
 #include "irods_hierarchy_parser.hpp"
+#include "irods_stacktrace.hpp"
 #include "rodsError.h"
 
+#define IRODS_FILESYSTEM_ENABLE_SERVER_SIDE_API
 #include "filesystem.hpp"
+
 #include "json.hpp"
 
 namespace irods {
@@ -54,6 +57,7 @@ namespace irods {
         const int   _code,
         const char* _what,
         rError_t&   _error) {
+
         addRErrorMsg(
             &_error,
             _code,
@@ -144,6 +148,9 @@ namespace irods {
         if(object_path.empty()) {
            object_path = extract_object_parameter<std::string>("object_path", _params);
         }
+        if(object_path.empty()) {
+           object_path = extract_object_parameter<std::string>("target", _params);
+        }
 
         source_resource = extract_object_parameter<std::string>("source_resource", _params);
         destination_resource = extract_object_parameter<std::string>("destination_resource", _params);
@@ -151,15 +158,11 @@ namespace irods {
         auto cond_input = _params["cond_input"];
 
         if(source_resource.empty()) {
-            if(cond_input.find("resc_hier") == cond_input.end()) {
-                THROW(
-                    SYS_INVALID_INPUT_PARAM,
-                    "source_resource or resc_hier not provided");
+            if(cond_input.find("resc_hier") != cond_input.end()) {
+                std::string resc_hier = _params["cond_input"]["resc_hier"];
+                irods::hierarchy_parser parser(resc_hier);
+                source_resource = parse_hierarchy(parser, T);
             }
-
-            std::string resc_hier = _params["cond_input"]["resc_hier"];
-            irods::hierarchy_parser parser(resc_hier);
-            source_resource = parse_hierarchy(parser, T);
         }
 
         if(destination_resource.empty()) {

@@ -24,6 +24,8 @@ install(
   FILES
   policy_engine.hpp
   policy_engine_utilities.hpp
+  rule_engine_plugin_configuration_json.hpp
+  policy_engine_configuration_manager.hpp
   DESTINATION usr/include/irods
   COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
   )

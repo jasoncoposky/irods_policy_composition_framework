@@ -120,8 +120,8 @@ namespace irods {
                         policy_context.rei = rei;
 
                         auto it = _arguments.begin();
-                        auto parameter_string{ boost::any_cast<arg_type>(*it) }; ++it;
-                        auto configuration_string{ boost::any_cast<arg_type>(*it) };
+                        auto parameter_string{boost::any_cast<arg_type>(*it)}; ++it;
+                        auto configuration_string{boost::any_cast<arg_type>(*it)};
 
                         bool log_errors = false;
 
@@ -136,16 +136,20 @@ namespace irods {
                         log_errors = get_log_errors_flag(
                                            policy_context.parameters
                                          , policy_context.configuration);
-
                         auto err = policy_implementation(policy_context);
 
                         if(!err.ok()) {
+                            addRErrorMsg(
+                                    &rei->rsComm->rError,
+                                    err.code(),
+                                    err.result().c_str());
                             if(log_errors) { irods::log(err); }
                             THROW(err.code(), err.result());
                         }
                     }
 
                 }
+                // TODO :: add more context to these errors for the user
                 catch(const std::invalid_argument& _e) {
                     if(log_errors) { irods::log(err); }
                     exception_to_rerror(
@@ -175,13 +179,28 @@ namespace irods {
                                SYS_NOT_SUPPORTED,
                                _e.what());
                 }
+                catch(const json::exception& _e) {
+                    addRErrorMsg(
+                            &rei->rsComm->rError,
+                            SYS_NOT_SUPPORTED,
+                            _e.what());
+                    if(log_errors) { rodsLog(LOG_ERROR, "%s", _e.what()); }
+                    return ERROR(
+                               SYS_NOT_SUPPORTED,
+                               _e.what());
+                }
+#if 0
                 catch(...) {
+                    addRErrorMsg(
+                            &rei->rsComm->rError,
+                            SYS_NOT_SUPPORTED,
+                            "policy_engine :: an unknown error has occurred.");
                     rodsLog(LOG_ERROR, "policy_engine :: an unknown error has occurred.");
                     return ERROR(
                                SYS_NOT_SUPPORTED,
                                "policy_engine :: an unknown error has occurred.");
                 }
-
+#endif
 
                 // given that this is a specific policy implementation which does not react
                 // to policy enforcement points we can return SUCCESS() rather than

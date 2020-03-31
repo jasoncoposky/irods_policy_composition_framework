@@ -3,7 +3,7 @@
 #include "exec_as_user.hpp"
 #include "irods_server_api_call.hpp"
 #include "apiNumber.h"
-#include "configuration_manager.hpp"
+#include "policy_engine_configuration_manager.hpp"
 
 #include "json.hpp"
 
@@ -44,7 +44,7 @@ namespace {
 
     irods::error data_retention_policy(const pe::context& ctx)
     {
-        irods::configuration_manager cfg_mgr{ctx.instance_name, ctx.configuration};
+        pe::configuration_manager cfg_mgr{ctx.instance_name, ctx.configuration};
 
         std::string mode{}, user_name{}, object_path{}, source_resource{}, attribute{};
 

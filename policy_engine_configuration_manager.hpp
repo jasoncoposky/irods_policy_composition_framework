@@ -1,9 +1,9 @@
 #ifndef CONFIGURATION_MANAGER_HPP
 #define CONFIGURATION_MANAGER_HPP
 
-#include "plugin_configuration_json.hpp"
+#include "rule_engine_plugin_configuration_json.hpp"
 
-namespace irods {
+namespace irods::policy_engine {
     class configuration_manager {
         using json = nlohmann::json;
 
@@ -24,8 +24,7 @@ namespace irods {
         {
             const auto& tmp_cfg = plugin_cfg_.plugin_configuration;
 
-            if(call_cfg_.empty() &&
-               tmp_cfg.empty() ) {
+            if(call_cfg_.empty() && tmp_cfg.empty() ) {
                 return std::make_tuple(
                            ERROR(
                                SYS_INVALID_INPUT_PARAM,
@@ -60,8 +59,7 @@ namespace irods {
         {
             const auto& tmp_cfg = plugin_cfg_.plugin_configuration;
 
-            if(call_cfg_.empty() &&
-               tmp_cfg.empty() ) {
+            if(call_cfg_.empty() && tmp_cfg.empty() ) {
                 return std::make_tuple(
                            ERROR(
                                SYS_INVALID_INPUT_PARAM,
@@ -94,6 +92,6 @@ namespace irods {
         const json&               call_cfg_;
     }; // class configuration_manager
 
-} // namespace irods
+} // namespace irods::policy_engine
 
 #endif // CONFIGURATION_MANAGER_HPP
