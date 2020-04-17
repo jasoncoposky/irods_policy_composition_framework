@@ -135,7 +135,7 @@ namespace irods {
           const json& _params
         , TAG_TYPE    T)
     {
-        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
+        std::string user_name{}, logical_path{}, source_resource{}, destination_resource{};
 
         auto comm_obj = _params["comm"];
         user_name = extract_object_parameter<std::string>("proxy_user_name", comm_obj);
@@ -144,12 +144,12 @@ namespace irods {
             user_name = extract_object_parameter<std::string>("user_name", _params);
         }
 
-        object_path = extract_object_parameter<std::string>("obj_path", _params);
-        if(object_path.empty()) {
-           object_path = extract_object_parameter<std::string>("object_path", _params);
+        logical_path = extract_object_parameter<std::string>("obj_path", _params);
+        if(logical_path.empty()) {
+           logical_path = extract_object_parameter<std::string>("logical_path", _params);
         }
-        if(object_path.empty()) {
-           object_path = extract_object_parameter<std::string>("target", _params);
+        if(logical_path.empty()) {
+           logical_path = extract_object_parameter<std::string>("target", _params);
         }
 
         source_resource = extract_object_parameter<std::string>("source_resource", _params);
@@ -173,7 +173,7 @@ namespace irods {
             }
         }
 
-        return std::make_tuple(user_name, object_path, source_resource, destination_resource);
+        return std::make_tuple(user_name, logical_path, source_resource, destination_resource);
     }
 
     template<typename T>
@@ -227,7 +227,7 @@ namespace irods {
     auto capture_parameters(
         const json& parameters,
         TAG_TYPE    T) {
-        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
+        std::string user_name{}, logical_path{}, source_resource{}, destination_resource{};
 
         // query processor invocation
         if(parameters.contains("query_results")) {
@@ -238,17 +238,17 @@ namespace irods {
             std::tie(user_name, tmp_coll_name, tmp_data_name, source_resource) =
                 irods::extract_array_parameters<4, std::string>(parameters.at("query_results"));
 
-            object_path = (fsp{tmp_coll_name} / fsp{tmp_data_name}).string();
+            logical_path = (fsp{tmp_coll_name} / fsp{tmp_data_name}).string();
         }
         else {
             // event handler or direct call invocation
-            std::tie(user_name, object_path, source_resource, destination_resource) =
+            std::tie(user_name, logical_path, source_resource, destination_resource) =
                 irods::extract_dataobj_inp_parameters(
                       parameters
                     , T);
         }
 
-        return std::make_tuple(user_name, object_path, source_resource, destination_resource);
+        return std::make_tuple(user_name, logical_path, source_resource, destination_resource);
     } // capture_parameters
 
 } // namespace irods
