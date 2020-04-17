@@ -223,4 +223,32 @@ namespace irods {
         return std::make_tuple(std::string{}, std::string{});
     } // get_metadata_for_resource
 
+    template<typename TAG_TYPE>
+    auto capture_parameters(
+        const json& parameters,
+        TAG_TYPE    T) {
+        std::string user_name{}, object_path{}, source_resource{}, destination_resource{};
+
+        // query processor invocation
+        if(parameters.contains("query_results")) {
+            using fsp = irods::experimental::filesystem::path;
+
+            std::string tmp_coll_name{}, tmp_data_name{};
+
+            std::tie(user_name, tmp_coll_name, tmp_data_name, source_resource) =
+                irods::extract_array_parameters<4, std::string>(parameters.at("query_results"));
+
+            object_path = (fsp{tmp_coll_name} / fsp{tmp_data_name}).string();
+        }
+        else {
+            // event handler or direct call invocation
+            std::tie(user_name, object_path, source_resource, destination_resource) =
+                irods::extract_dataobj_inp_parameters(
+                      parameters
+                    , T);
+        }
+
+        return std::make_tuple(user_name, object_path, source_resource, destination_resource);
+    } // capture_parameters
+
 } // namespace irods
