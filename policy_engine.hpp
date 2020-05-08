@@ -3,6 +3,9 @@
 
 #include "irods_re_plugin.hpp"
 #include "irods_re_ruleexistshelper.hpp"
+#include "irods_query.hpp"
+#include "filesystem.hpp"
+
 #include "rcMisc.h"
 #include <boost/any.hpp>
 #include "policy_engine_utilities.hpp"
@@ -91,6 +94,13 @@ namespace irods {
                 return flag;
 
             } // get_log_errors_flag
+
+            void log_parse_error(const std::string& msg)
+            {
+                rodsLog(LOG_ERROR
+                      , "policy_engine :: failed to parse metdata substitution [%s]"
+                      , msg.c_str());
+            }
 
             error exec_rule(
                 default_re_ctx&

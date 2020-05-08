@@ -7,11 +7,53 @@ string(TOUPPER ${IRODS_PACKAGE_COMPONENT_POLICY_NAME} IRODS_PACKAGE_COMPONENT_PO
 set(TARGET_NAME "${POLICY_NAME}")
 string(REPLACE "_" "-" TARGET_NAME_HYPHENS ${TARGET_NAME})
 
-#add_library(
-#    ${TARGET_NAME}
-#    )
+set(
+  IRODS_PLUGIN_POLICY_COMPILE_DEFINITIONS
+  RODS_SERVER
+  ENABLE_RE
+  )
 
-#set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD ${IRODS_CXX_STANDARD})
+set(
+  IRODS_PLUGIN_POLICY_LINK_LIBRARIES
+  irods_server
+  )
+
+add_library(
+    ${TARGET_NAME}
+    MODULE
+    policy_engine_utilities.cpp
+    )
+
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD ${IRODS_CXX_STANDARD})
+
+target_include_directories(
+    ${TARGET_NAME}
+    PRIVATE
+    ${IRODS_INCLUDE_DIRS}
+    ${IRODS_EXTERNALS_FULLPATH_JSON}/include
+    ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+target_link_libraries(
+    ${TARGET_NAME}
+    PRIVATE
+    ${IRODS_PLUGIN_POLICY_LINK_LIBRARIES}
+    irods_common
+    )
+
+target_compile_definitions(${TARGET_NAME} PRIVATE ${IRODS_PLUGIN_POLICY_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS} BOOST_SYSTEM_NO_DEPRECATED)
+target_compile_options(${TARGET_NAME} PRIVATE -Wno-write-strings)
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD ${IRODS_CXX_STANDARD})
+
+install(
+  TARGETS
+  ${TARGET_NAME}
+  LIBRARY
+  DESTINATION usr/lib
+  COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
+  )
 
 install(
   FILES
@@ -24,6 +66,7 @@ install(
   FILES
   policy_engine.hpp
   policy_engine_utilities.hpp
+  policy_engine_parameter_capture.hpp
   rule_engine_plugin_configuration_json.hpp
   policy_engine_configuration_manager.hpp
   DESTINATION usr/include/irods
