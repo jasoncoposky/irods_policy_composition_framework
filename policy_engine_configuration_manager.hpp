@@ -17,75 +17,55 @@ namespace irods::policy_engine {
         } // ctor
 
         template<typename T>
-        std::tuple<error, T>
-        get_value(
+        auto get(
             const std::string& _key
           , const T&           _default)
         {
             const auto& tmp_cfg = plugin_cfg_.plugin_configuration;
 
             if(call_cfg_.empty() && tmp_cfg.empty() ) {
-                return std::make_tuple(
-                           ERROR(
-                               SYS_INVALID_INPUT_PARAM,
-                               "configuration is empty"),
-                           _default);
+                return _default;
             }
 
             if(!call_cfg_.empty()) {
                 if(call_cfg_.find(_key) != call_cfg_.end()) {
-                    return std::make_tuple(SUCCESS(), call_cfg_.at(_key).get<T>());
+                    return call_cfg_.at(_key).get<T>();
                 }
             }
 
             if(!tmp_cfg.empty()) {
                 if(tmp_cfg.find(_key) != tmp_cfg.end()) {
-                    return std::make_tuple(SUCCESS(), tmp_cfg.at(_key).get<T>());
+                    return tmp_cfg.at(_key).get<T>();
                 }
             }
 
-            return std::make_tuple(
-                       ERROR(
-                           SYS_INVALID_INPUT_PARAM,
-                           boost::format("[%s] key not found")
-                           % _key),
-                       _default);
-        } // get_value
+            return _default;
+        } // get
 
-        std::tuple<error, std::string>
-        get_value(
+        auto get(
             const std::string& _key
-          , const char         _default[])
+          , const char         _default[]) -> std::string
         {
             const auto& tmp_cfg = plugin_cfg_.plugin_configuration;
 
             if(call_cfg_.empty() && tmp_cfg.empty() ) {
-                return std::make_tuple(
-                           ERROR(
-                               SYS_INVALID_INPUT_PARAM,
-                               "configuration is empty"),
-                           _default);
+                return _default;
             }
 
             if(!call_cfg_.empty()) {
                 if(call_cfg_.find(_key) != call_cfg_.end()) {
-                    return std::make_tuple(SUCCESS(), call_cfg_.at(_key));
+                    return call_cfg_.at(_key);
                 }
             }
 
             if(!tmp_cfg.empty()) {
                 if(tmp_cfg.find(_key) != tmp_cfg.end()) {
-                    return std::make_tuple(SUCCESS(), tmp_cfg.at(_key));
+                    return tmp_cfg.at(_key);
                 }
             }
 
-            return std::make_tuple(
-                       ERROR(
-                           SYS_INVALID_INPUT_PARAM,
-                           boost::format("[%s] key not found")
-                           % _key),
-                       _default);
-        } // get_value
+            return _default;
+        } // get
 
         private:
         plugin_configuration_json plugin_cfg_;

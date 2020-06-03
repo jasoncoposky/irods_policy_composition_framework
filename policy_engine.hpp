@@ -4,7 +4,6 @@
 #include "irods_re_plugin.hpp"
 #include "irods_re_ruleexistshelper.hpp"
 #include "irods_query.hpp"
-#include "filesystem.hpp"
 
 #include "rcMisc.h"
 #include <boost/any.hpp>
