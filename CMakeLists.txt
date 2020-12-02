@@ -88,6 +88,7 @@ include(${CMAKE_SOURCE_DIR}/irods_policy_engine.cmake)
 
 # include all cmake files for rule engine plugins for this repository
 include(${CMAKE_SOURCE_DIR}/irods_dev_policy_engine.cmake)
+include(${CMAKE_SOURCE_DIR}/irods_dev_event_handler.cmake)
 include(${CMAKE_SOURCE_DIR}/policy_engine.cmake)
 
 include(CPack)
