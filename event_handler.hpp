@@ -12,8 +12,8 @@
 namespace irods::event_handler {
 
     // clang-format off
-    using arguments_type      = const std::list<boost::any>;
-    using handler_type        = std::tuple<std::string, json> (*)(const std::string&, arguments_type&, ruleExecInfo_t*);
+    using handler_return_type = std::tuple<std::string, json>;
+    using handler_type        = handler_return_type (*)(const std::string&, const arguments_type&, ruleExecInfo_t*);
     using handler_map_type    = std::map<std::string, handler_type>;
     using configuration_type  = std::unique_ptr<irods::plugin_configuration_json>;
     using consumed_pep_type   = std::set<std::string>;

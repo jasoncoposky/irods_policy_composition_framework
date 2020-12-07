@@ -52,9 +52,9 @@ namespace {
         if(logical_path.empty()) {
            logical_path = extract_object_parameter<std::string>("logical_path", _params);
         }
-        if(logical_path.empty()) {
-           logical_path = extract_object_parameter<std::string>("target", _params);
-        }
+        //if(logical_path.empty()) {
+        //   logical_path = extract_object_parameter<std::string>("target", _params);
+        //}
 
         source_resource = extract_object_parameter<std::string>("source_resource", _params);
         destination_resource = extract_object_parameter<std::string>("destination_resource", _params);

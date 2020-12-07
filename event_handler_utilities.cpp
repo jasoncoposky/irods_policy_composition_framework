@@ -9,11 +9,60 @@
 #include "objDesc.hpp"
 
 #include "boost/lexical_cast.hpp"
+#include "fmt/format.h"
 
 // Persistent L1 File Descriptor Table
 extern l1desc_t L1desc[NUM_L1_DESC];
 
 namespace irods::event_handler {
+
+    auto advance_or_throw(
+        const arguments_type& _args
+      , const uint32_t        _num) -> arguments_type::const_iterator
+    {
+        auto it = _args.cbegin();
+
+        std::advance(it, _num);
+        if(_args.end() == it) {
+            THROW(
+                SYS_INVALID_INPUT_PARAM,
+                "invalid number of arguments");
+        }
+
+        return it;
+
+    } // advance_or_throw
+
+    auto pep_to_event(const event_map_type& _p2e, const std::string& _pep) -> std::string
+    {
+        const auto prefix = std::string{"pep_api_"};
+
+        // remove the prefix
+        auto pos = _pep.find(prefix);
+        if(std::string::npos == pos) {
+            return "UNSUPPORTED";
+        }
+
+        auto tmp = _pep.substr(prefix.size());
+
+        // remove the suffix
+        pos = tmp.find_last_of("_");
+        if(std::string::npos == pos) {
+            return "UNSUPPORTED";
+        }
+
+        tmp = tmp.substr(0, pos);
+
+        try {
+            return _p2e.at(tmp);
+        }
+        catch(const std::exception& _e) {
+            THROW(
+                SYS_INVALID_INPUT_PARAM,
+                fmt::format("failed to map event for pep {}", tmp));
+        }
+
+    } // pep_to_event
 
     auto get_index_and_json_from_obj_inp(const dataObjInp_t* _inp) -> std::tuple<int, json>
     {
@@ -42,6 +91,23 @@ namespace irods::event_handler {
 
     } // get_index_and_resource_from_obj_inp
 
+    auto serialize_generalAdminInp_to_json(const generalAdminInp_t& _inp) -> json
+    {
+        json j;
+        j["action"] = _inp.arg0;
+        j["target"] = _inp.arg1;
+        j["arg2"]   = _inp.arg2;
+        j["arg3"]   = _inp.arg3;
+        j["arg4"]   = _inp.arg4;
+        j["arg5"]   = _inp.arg5;
+        j["arg6"]   = _inp.arg6;
+        j["arg7"]   = _inp.arg7;
+        j["arg8"]   = _inp.arg8;
+        j["arg9"]   = _inp.arg9;
+
+        return j;
+    } // serialize_generalAdminInp_to_json
+
     auto serialize_keyValPair_to_json(const keyValPair_t& _kvp) -> json
     {
         json j;
@@ -64,17 +130,29 @@ namespace irods::event_handler {
 
     } // serialize_keyValPair_to_json
 
+    auto serialize_collInp_to_json(const collInp_t& _inp) -> json
+    {
+        json j;
+        j["logical_path"] = _inp.collName;
+        j["flags"]        = boost::lexical_cast<std::string>(_inp.flags);
+        j["opr_type"]     = boost::lexical_cast<std::string>(_inp.oprType);
+        j["cond_input"]   = serialize_keyValPair_to_json(_inp.condInput);
+
+        return j;
+
+    } // seralize_collInp_to_json
+
     auto serialize_dataObjInp_to_json(const dataObjInp_t& _inp) -> json
     {
         json j;
-        j["obj_path"]    = _inp.objPath;
-        j["create_mode"] = boost::lexical_cast<std::string>(_inp.createMode);
-        j["open_flags"]  = boost::lexical_cast<std::string>(_inp.openFlags);
-        j["offset"]      = boost::lexical_cast<std::string>(_inp.offset);
-        j["data_size"]   = boost::lexical_cast<std::string>(_inp.dataSize);
-        j["num_threads"] = boost::lexical_cast<std::string>(_inp.numThreads);
-        j["opr_type"]    = boost::lexical_cast<std::string>(_inp.oprType);
-        j["cond_input"]  = serialize_keyValPair_to_json(_inp.condInput);
+        j["logical_path"] = _inp.objPath;
+        j["create_mode"]  = boost::lexical_cast<std::string>(_inp.createMode);
+        j["open_flags"]   = boost::lexical_cast<std::string>(_inp.openFlags);
+        j["offset"]       = boost::lexical_cast<std::string>(_inp.offset);
+        j["data_size"]    = boost::lexical_cast<std::string>(_inp.dataSize);
+        j["num_threads"]  = boost::lexical_cast<std::string>(_inp.numThreads);
+        j["opr_type"]     = boost::lexical_cast<std::string>(_inp.oprType);
+        j["cond_input"]   = serialize_keyValPair_to_json(_inp.condInput);
 
         return j;
 

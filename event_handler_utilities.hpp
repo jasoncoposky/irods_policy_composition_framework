@@ -4,14 +4,27 @@
 
 #include "filesystem.hpp"
 #include "rodsError.h"
+#include "generalAdmin.h"
 
 #include "json.hpp"
 
-namespace irods::event_handler {
-    using json = nlohmann::json;
+#include <string>
+#include <map>
 
+namespace irods::event_handler {
+
+    // clang-format off
+    using json           = nlohmann::json;
+    using event_map_type = std::map<std::string, std::string>;
+    using arguments_type = std::list<boost::any>;
+    // clang-format on
+
+    auto advance_or_throw(const arguments_type&, const uint32_t) -> arguments_type::const_iterator;
+    auto pep_to_event(const event_map_type&, const std::string&) -> std::string;
     auto get_index_and_json_from_obj_inp(const dataObjInp_t*) -> std::tuple<int, json>;
+    auto serialize_generalAdminInp_to_json(const generalAdminInp_t&) -> json;
     auto serialize_keyValPair_to_json(const keyValPair_t&) -> json;
+    auto serialize_collInp_to_json(const collInp_t&) -> json;
     auto serialize_dataObjInp_to_json(const dataObjInp_t&) -> json;
     auto serialize_openedDataObjInp_to_json(const openedDataObjInp_t& _inp) -> json;
     auto serialize_rsComm_to_json(rsComm_t*) -> json;
