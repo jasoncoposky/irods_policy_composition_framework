@@ -2,8 +2,8 @@
 #include "irods_re_plugin.hpp"
 #include "irods_re_ruleexistshelper.hpp"
 
-#include "policy_composition_utilities.hpp"
-#include "rule_engine_plugin_configuration_json.hpp"
+#include "policy_composition_framework_utilities.hpp"
+#include "policy_composition_framework_plugin_configuration_json.hpp"
 
 #include "boost/any.hpp"
 #include "boost/lexical_cast.hpp"

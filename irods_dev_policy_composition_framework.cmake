@@ -65,6 +65,7 @@ install(
 install(
   FILES
   irods_dev_policy_composition_framework.cmake
+  policy_composition_framework_cmake_utilities.cmake
   DESTINATION usr/lib/irods/cmake
   COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
   )

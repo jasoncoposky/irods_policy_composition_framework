@@ -1,7 +1,7 @@
-#ifndef CONFIGURATION_MANAGER_HPP
-#define CONFIGURATION_MANAGER_HPP
+#ifndef IRODS_POLICY_COMPOSITION_FRAMEWORK_CONFIGURATION_MANAGER
+#define IRODS_POLICY_COMPOSITION_FRAMEWORK_CONFIGURATION_MANAGER
 
-#include "rule_engine_plugin_configuration_json.hpp"
+#include "policy_composition_framework_plugin_configuration_json.hpp"
 
 namespace irods::policy_engine {
     class configuration_manager {
@@ -74,4 +74,4 @@ namespace irods::policy_engine {
 
 } // namespace irods::policy_engine
 
-#endif // CONFIGURATION_MANAGER_HPP
+#endif // IRODS_POLICY_COMPOSITION_FRAMEWORK_CONFIGURATION_MANAGER
