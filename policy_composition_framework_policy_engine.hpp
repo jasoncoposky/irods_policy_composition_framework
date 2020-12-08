@@ -9,7 +9,7 @@
 
 #include "rcMisc.h"
 #include <boost/any.hpp>
-#include "policy_engine_utilities.hpp"
+#include "policy_composition_framework_utilities.hpp"
 
 #include "json.hpp"
 
@@ -17,7 +17,11 @@ namespace irods {
 
     namespace policy_engine {
 
-        using json = nlohmann::json;
+        // clang-format off
+        using     json = nlohmann::json;
+        namespace ipc  = irods::policy_composition;
+        // clang-format on
+
 
         struct context {
             ruleExecInfo_t* rei{};
@@ -163,7 +167,7 @@ namespace irods {
                 // TODO :: add more context to these errors for the user
                 catch(const std::invalid_argument& _e) {
                     if(log_errors) { irods::log(err); }
-                    exception_to_rerror(
+                    ipc::exception_to_rerror(
                         SYS_NOT_SUPPORTED,
                         _e.what(),
                         rei->rsComm->rError);
@@ -173,7 +177,7 @@ namespace irods {
                 }
                 catch(const boost::bad_any_cast& _e) {
                     if(log_errors) { irods::log(err); }
-                    exception_to_rerror(
+                    ipc::exception_to_rerror(
                         SYS_NOT_SUPPORTED,
                         _e.what(),
                         rei->rsComm->rError);
@@ -183,7 +187,7 @@ namespace irods {
                 }
                 catch(const exception& _e) {
                     if(log_errors) { irods::log(err); }
-                    exception_to_rerror(
+                    ipc::exception_to_rerror(
                         _e,
                         rei->rsComm->rError);
                     return ERROR(

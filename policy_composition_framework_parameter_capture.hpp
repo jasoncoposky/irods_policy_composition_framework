@@ -1,13 +1,15 @@
 
 #include "irods_re_plugin.hpp"
 #include "irods_exception.hpp"
-#include "irods_query.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "irods_stacktrace.hpp"
 #include "rodsError.h"
 
 #define IRODS_FILESYSTEM_ENABLE_SERVER_SIDE_API
 #include "filesystem.hpp"
+
+#define IRODS_QUERY_ENABLE_SERVER_SIDE_API
+#include "irods_query.hpp"
 
 #include "json.hpp"
 

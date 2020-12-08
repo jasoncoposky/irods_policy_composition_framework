@@ -21,7 +21,7 @@ set(
 add_library(
     ${TARGET_NAME}
     MODULE
-    policy_engine_utilities.cpp
+    policy_composition_utilities.cpp
     )
 
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD ${IRODS_CXX_STANDARD})
@@ -33,6 +33,7 @@ target_include_directories(
     ${IRODS_EXTERNALS_FULLPATH_JSON}/include
     ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
     ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
+    ${IRODS_EXTERNALS_FULLPATH_FMT}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
@@ -40,6 +41,8 @@ target_link_libraries(
     ${TARGET_NAME}
     PRIVATE
     ${IRODS_PLUGIN_POLICY_LINK_LIBRARIES}
+    ${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
     irods_common
     )
 
@@ -65,7 +68,7 @@ install(
 install(
   FILES
   policy_engine.hpp
-  policy_engine_utilities.hpp
+  policy_composition_utilities.hpp
   policy_engine_parameter_capture.hpp
   rule_engine_plugin_configuration_json.hpp
   policy_engine_configuration_manager.hpp

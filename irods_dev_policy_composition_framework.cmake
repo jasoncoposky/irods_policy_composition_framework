@@ -1,10 +1,10 @@
-set(POLICY_NAME "metadata_modified")
+set(POLICY_NAME "irods_dev_policy_composition_framework")
 
 string(REPLACE "_" "-" POLICY_NAME_HYPHENS ${POLICY_NAME})
 set(IRODS_PACKAGE_COMPONENT_POLICY_NAME "${POLICY_NAME_HYPHENS}${IRODS_PACKAGE_FILE_NAME_SUFFIX}")
 string(TOUPPER ${IRODS_PACKAGE_COMPONENT_POLICY_NAME} IRODS_PACKAGE_COMPONENT_POLICY_NAME_UPPERCASE)
 
-set(TARGET_NAME "${PROJECT_NAME}-event_handler-${POLICY_NAME}")
+set(TARGET_NAME "${POLICY_NAME}")
 string(REPLACE "_" "-" TARGET_NAME_HYPHENS ${TARGET_NAME})
 
 set(
@@ -21,9 +21,10 @@ set(
 add_library(
     ${TARGET_NAME}
     MODULE
-    ${CMAKE_SOURCE_DIR}/lib${TARGET_NAME}.cpp
-    ${CMAKE_SOURCE_DIR}/event_handler_utilities.cpp
+    policy_composition_framework_utilities.cpp
     )
+
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD ${IRODS_CXX_STANDARD})
 
 target_include_directories(
     ${TARGET_NAME}
@@ -32,6 +33,7 @@ target_include_directories(
     ${IRODS_EXTERNALS_FULLPATH_JSON}/include
     ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
     ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
+    ${IRODS_EXTERNALS_FULLPATH_FMT}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
@@ -39,9 +41,13 @@ target_link_libraries(
     ${TARGET_NAME}
     PRIVATE
     ${IRODS_PLUGIN_POLICY_LINK_LIBRARIES}
-    irods_common
-    irods_dev_policy_engine
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_chrono.so
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_thread.so
     ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
+    ${IRODS_EXTERNALS_FULLPATH_FMT}/lib/libfmt.so
+    irods_common
     )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE ${IRODS_PLUGIN_POLICY_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS} BOOST_SYSTEM_NO_DEPRECATED)
@@ -52,14 +58,33 @@ install(
   TARGETS
   ${TARGET_NAME}
   LIBRARY
-  DESTINATION usr/lib/irods/plugins/rule_engines
+  DESTINATION usr/lib
   COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
   )
 
 install(
   FILES
-  packaging/test_plugin_event_handler-${POLICY_NAME}.py
-  DESTINATION var/lib/irods/scripts/irods/test
+  irods_dev_policy_composition_framework.cmake
+  DESTINATION usr/lib/irods/cmake
+  COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
+  )
+
+install(
+  FILES
+  policy_composition_framework_event_handler.hpp
+  policy_composition_framework_policy_engine.hpp
+  policy_composition_framework_utilities.hpp
+  policy_composition_framework_parameter_capture.hpp
+  policy_composition_framework_plugin_configuration_json.hpp
+  policy_composition_framework_configuration_manager.hpp
+  DESTINATION usr/include/irods
+  COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
+  )
+
+install(
+  FILES
+  exec_as_user.hpp
+  DESTINATION usr/include/irods
   COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
   )
 

@@ -81,15 +81,14 @@ set(CPACK_RPM_PACKAGE_AUTOPROV 0)
 
 set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
 
-include(${CMAKE_SOURCE_DIR}/irods_policy_engine.cmake)
+include(${CMAKE_SOURCE_DIR}/policy_composition_framework_cmake_utilities.cmake)
 
 # CPACK names component package files as "${CPACK_PACKAGE_FILE_NAME}-${COMPONENT_NAME}"
 # CPackDeb TO_UPPERs all the component names when checking the ${CPACK_DEBIAN_<COMPONENT>...} variables
 
 # include all cmake files for rule engine plugins for this repository
-include(${CMAKE_SOURCE_DIR}/irods_dev_policy_engine.cmake)
-include(${CMAKE_SOURCE_DIR}/irods_dev_event_handler.cmake)
-include(${CMAKE_SOURCE_DIR}/policy_engine.cmake)
+include(${CMAKE_SOURCE_DIR}/irods_dev_policy_composition_framework.cmake)
+include(${CMAKE_SOURCE_DIR}/policy_engine_example.cmake)
 
 include(CPack)
 

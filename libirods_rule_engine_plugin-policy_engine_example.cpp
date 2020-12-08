@@ -1,5 +1,5 @@
 
-#include "policy_engine.hpp"
+#include "policy_composition_framework_policy_engine.hpp"
 
 namespace pe = irods::policy_engine;
 

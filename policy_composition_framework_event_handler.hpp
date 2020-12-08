@@ -2,8 +2,7 @@
 #include "irods_re_plugin.hpp"
 #include "irods_re_ruleexistshelper.hpp"
 
-#include "policy_engine_utilities.hpp"
-#include "event_handler_utilities.hpp"
+#include "policy_composition_utilities.hpp"
 #include "rule_engine_plugin_configuration_json.hpp"
 
 #include "boost/any.hpp"
@@ -12,8 +11,11 @@
 namespace irods::event_handler {
 
     // clang-format off
+    namespace ipc = irods::policy_composition;
+
+    using json                = nlohmann::json;
     using handler_return_type = std::tuple<std::string, json>;
-    using handler_type        = handler_return_type (*)(const std::string&, const arguments_type&, ruleExecInfo_t*);
+    using handler_type        = handler_return_type (*)(const std::string&, const ipc::arguments_type&, ruleExecInfo_t*);
     using handler_map_type    = std::map<std::string, handler_type>;
     using configuration_type  = std::unique_ptr<irods::plugin_configuration_json>;
     using consumed_pep_type   = std::set<std::string>;
@@ -85,7 +87,7 @@ namespace irods::event_handler {
 
             auto p2i = configuration->plugin_configuration.at("policies_to_invoke");
 
-            invoke_policies_for_event(_rei, event, _pep, p2i, obj);
+            ipc::invoke_policies_for_event(_rei, event, _pep, p2i, obj);
         }
 
     } // process_policy_enforcement_point
@@ -164,7 +166,7 @@ namespace irods::event_handler {
             catch(const std::invalid_argument& _e) {
                 // pass the exception to the rError stack to get the result
                 // back to the client for forensics
-                irods::exception_to_rerror(
+                ipc::exception_to_rerror(
                     SYS_NOT_SUPPORTED,
                     _e.what(),
                     rei->rsComm->rError);
@@ -173,7 +175,7 @@ namespace irods::event_handler {
                            _e.what());
             }
             catch(const boost::bad_lexical_cast& _e) {
-                irods::exception_to_rerror(
+                ipc::exception_to_rerror(
                     SYS_NOT_SUPPORTED,
                     _e.what(),
                     rei->rsComm->rError);
@@ -182,8 +184,7 @@ namespace irods::event_handler {
                            _e.what());
             }
             catch(const boost::bad_any_cast& _e) {
-rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
-                irods::exception_to_rerror(
+                ipc::exception_to_rerror(
                     SYS_NOT_SUPPORTED,
                     _e.what(),
                     rei->rsComm->rError);
@@ -192,7 +193,7 @@ rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
                            _e.what());
             }
             catch(const irods::exception& _e) {
-                irods::exception_to_rerror(
+                ipc::exception_to_rerror(
                     _e,
                     rei->rsComm->rError);
                 return ERROR(
@@ -200,7 +201,7 @@ rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
                            _e.what());
             }
             catch(const std::exception& _e) {
-                irods::exception_to_rerror(
+                ipc::exception_to_rerror(
                     SYS_NOT_SUPPORTED,
                     _e.what(),
                     rei->rsComm->rError);
@@ -209,7 +210,7 @@ rodsLog(LOG_NOTICE, "XXXX - %s:%d", __FUNCTION__, __LINE__);
                            _e.what());
             }
             catch(const nlohmann::json::exception& _e) {
-                irods::exception_to_rerror(
+                ipc::exception_to_rerror(
                     SYS_NOT_SUPPORTED,
                     _e.what(),
                     rei->rsComm->rError);

@@ -1,4 +1,4 @@
-# irods_plugin_common.cmake
+# irods_policy_composition_framework.cmake
 
 # prepare IRODS_LINUX_DISTRIBUTION_NAME
 if (NOT IRODS_LINUX_DISTRIBUTION_NAME)
