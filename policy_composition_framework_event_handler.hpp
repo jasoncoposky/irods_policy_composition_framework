@@ -1,3 +1,5 @@
+#ifndef IRODS_POLICY_COMPOSITION_FRAMEWORK_EVENT_HANDLER
+#define IRODS_POLICY_COMPOSITION_FRAMEWORK_EVENT_HANDLER
 
 #include "irods_re_plugin.hpp"
 #include "irods_re_ruleexistshelper.hpp"
@@ -8,7 +10,7 @@
 #include "boost/any.hpp"
 #include "boost/lexical_cast.hpp"
 
-namespace irods::event_handler {
+namespace irods::policy_composition::event_handler {
 
     // clang-format off
     namespace ipc = irods::policy_composition;
@@ -338,5 +340,4 @@ namespace irods::event_handler {
 
 } // namespace irods::event_handler
 
-
-
+#endif // IRODS_POLICY_COMPOSITION_FRAMEWORK_EVENT_HANDLER

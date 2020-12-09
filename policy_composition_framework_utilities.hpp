@@ -1,6 +1,9 @@
+#ifndef IRODS_POLICY_COMPOSITION_FRAMEWORK_UTILITIES
+#define IRODS_POLICY_COMPOSITION_FRAMEWORK_UTILITIES
 
 #include "irods_re_plugin.hpp"
 #include "irods_exception.hpp"
+#include "irods_at_scope_exit.hpp"
 
 #include "rodsError.h"
 #include "generalAdmin.h"
@@ -17,6 +20,29 @@ namespace irods::policy_composition {
     using event_map_type = std::map<std::string, std::string>;
     using arguments_type = std::list<boost::any>;
     // clang-format on
+
+    template <typename Function>
+    int exec_as_user(rsComm_t& _comm, const std::string& _user_name, Function _func)
+    {
+        if(_user_name.empty()) {
+            THROW(
+                SYS_INVALID_INPUT_PARAM,
+                "user name is empty");
+        }
+
+        auto& user = _comm.clientUser;
+
+        const auto old_user_name = std::string{user.userName};
+
+        rstrcpy(user.userName, _user_name.data(), NAME_LEN);
+
+        irods::at_scope_exit<std::function<void()>> at_scope_exit{[&user, &old_user_name] {
+            rstrcpy(user.userName, old_user_name.c_str(), MAX_NAME_LEN);
+        }};
+
+        return _func(_comm);
+
+    } // exec_as_user
 
     auto any_to_string(boost::any&);
     void exception_to_rerror(const irods::exception&, rError_t&);
@@ -35,4 +61,7 @@ namespace irods::policy_composition {
     auto serialize_rsComm_to_json(rsComm_t*) -> json;
     auto invoke_policies_for_event(ruleExecInfo_t*, const std::string&, const std::string&, const json&, const json&) -> void;
     auto evaluate_metadata_conditional(const json&, const json&) -> bool;
-} // namespace irods
+
+} // namespace irods::policy_composition
+
+#endif // IRODS_POLICY_COMPOSITION_FRAMEWORK_UTILITIES

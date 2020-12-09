@@ -382,13 +382,17 @@ namespace irods::policy_composition {
     {
         // look for conditionals
         if(policy.contains("conditional")) {
+
             std::string user_name{}, logical_path{}, source_resource{}, destination_resource{};
+
             std::tie(user_name, logical_path, source_resource, destination_resource) =
                 capture_parameters(
                       parameters
                     , tag_first_resc);
 
-            if(policy.at("conditional").contains("metadata")) {
+            auto conditional = policy.at("conditional");
+
+            if(conditional.contains("metadata")) {
                 auto cmd = policy.at("conditional").at("metadata");
                 auto emd = parameters.at("metadata");
                 if(!evaluate_metadata_conditional(cmd, emd)) {
@@ -397,28 +401,29 @@ namespace irods::policy_composition {
 
                 policy.at("parameters").at("conditional").at("metadata") = parameters.at("metadata");
             }
-            if(policy.at("conditional").contains("logical_path")) {
+
+            if(conditional.contains("logical_path")) {
                 auto cond_regex = boost::regex(policy.at("conditional").at("logical_path"));
                 if(!boost::regex_match(logical_path, cond_regex)) {
                     return false;
                 }
             }
-            if(policy.at("conditional").contains("source_resource") &&
-               !source_resource.empty()) {
+
+            if(conditional.contains("source_resource") && !source_resource.empty()) {
                 auto cond_regex = boost::regex(policy.at("conditional").at("source_resource"));
                 if(!boost::regex_match(source_resource, cond_regex)) {
                     return false;
                 }
             }
-            if(policy.at("conditional").contains("destination_resource") &&
-               !source_resource.empty()) {
+
+            if(conditional.contains("destination_resource") && !source_resource.empty()) {
                 auto cond_regex = boost::regex(policy.at("conditional").at("destination_resource"));
                 if(!boost::regex_match(destination_resource, cond_regex)) {
                     return false;
                 }
             }
-            if(policy.at("conditional").contains("user_name") &&
-               !user_name.empty()) {
+
+            if(conditional.contains("user_name") && !user_name.empty()) {
                 auto cond_regex = boost::regex(policy.at("conditional").at("user_name"));
                 if(!boost::regex_match(user_name, cond_regex)) {
                     return false;

@@ -1,3 +1,5 @@
+#ifndef IRODS_POLICY_COMPOSITION_FRAMEWORK_PARAMETER_CAPTURE
+#define IRODS_POLICY_COMPOSITION_FRAMEWORK_PARAMETER_CAPTURE
 
 #include "irods_re_plugin.hpp"
 #include "irods_exception.hpp"
@@ -170,3 +172,5 @@ namespace {
     } // capture_parameters
 
 } // namespace irods
+
+#endif // IRODS_POLICY_COMPOSITION_FRAMEWORK_PARAMETER_CAPTURE

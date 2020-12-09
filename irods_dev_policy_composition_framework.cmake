@@ -84,7 +84,6 @@ install(
 
 install(
   FILES
-  exec_as_user.hpp
   DESTINATION usr/include/irods
   COMPONENT ${IRODS_PACKAGE_COMPONENT_POLICY_NAME}
   )

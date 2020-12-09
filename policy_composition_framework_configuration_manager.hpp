@@ -3,7 +3,8 @@
 
 #include "policy_composition_framework_plugin_configuration_json.hpp"
 
-namespace irods::policy_engine {
+namespace irods::policy_composition::policy_engine {
+
     class configuration_manager {
         using json = nlohmann::json;
 
@@ -72,6 +73,6 @@ namespace irods::policy_engine {
         const json&               call_cfg_;
     }; // class configuration_manager
 
-} // namespace irods::policy_engine
+} // namespace irods::policy_composition::policy_engine
 
 #endif // IRODS_POLICY_COMPOSITION_FRAMEWORK_CONFIGURATION_MANAGER
