@@ -10,10 +10,32 @@
 #include "boost/lexical_cast.hpp"
 #include "fmt/format.h"
 
+#define IRODS_METADATA_ENABLE_SERVER_SIDE_API
+#include "metadata.hpp"
+
 // Persistent L1 File Descriptor Table
 extern l1desc_t L1desc[NUM_L1_DESC];
 
 namespace irods::policy_composition {
+
+    // clang-format off
+    namespace xm   = irods::experimental::metadata;
+    namespace fs   = irods::experimental::filesystem;
+    namespace fsvr = irods::experimental::filesystem::server;
+    using     fsp  = fs::path;
+    // clang-format on
+
+    void throw_if_doesnt_contain(
+          const json&       _p
+        , const std::string _v)
+    {
+        if(!_p.contains(_v)) {
+            THROW(
+                SYS_INVALID_INPUT_PARAM,
+                fmt::format("json does not contain value [{}]", _v));
+        }
+
+    } // throw_if_doesnt_contain
 
     auto any_to_string(boost::any& _a) {
         if(_a.type() == typeid(std::string)) {
@@ -37,8 +59,8 @@ namespace irods::policy_composition {
 
         THROW(
            SYS_INVALID_INPUT_PARAM,
-           boost::format("parameter is not a string [%s]")
-           % _a.type().name());
+           fmt::format("parameter is not a string [%s]",
+           _a.type().name()));
     } // any_to_string
 
     void exception_to_rerror(
@@ -310,44 +332,10 @@ namespace irods::policy_composition {
 
     } // serialize_rsComm_ptr
 
-    auto evaluate_metadata_conditional(
-          const json& cm           // conditional metadata
-        , const json& em) -> bool  // entity metadata
+    auto evaluate_metadata(
+          const fs::metadata&  cmd  // conditional metadata
+        , const fs::metadata&  emd) // entity metadata
     {
-        if(cm.contains("entity_type") &&
-           em.contains("entity_type")) {
-           if(cm.at("entity_type") != em.at("entity_type")) {
-               return false;
-           }
-        }
-
-        if(cm.contains("operation") &&
-           em.contains("operation")) {
-            bool found = false;
-            for(const auto op : cm.at("operation")) {
-                if(op == em.at("operation")) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if(!found) {
-                return false;
-            }
-        }
-
-        namespace fs = irods::experimental::filesystem;
-
-        const fs::metadata cmd{
-              cm.contains("attribute") ? cm.at("attribute") : ""
-            , cm.contains("value")     ? cm.at("value")     : ""
-            , cm.contains("units")     ? cm.at("units")     : ""};
-
-        const fs::metadata emd{
-              em.contains("attribute") ? em.at("attribute") : ""
-            , em.contains("value")     ? em.at("value")     : ""
-            , em.contains("units")     ? em.at("units")     : ""};
-
         if(cmd.attribute.empty() && cmd.value.empty() && cmd.units.empty()) {
             return true;
         }
@@ -374,10 +362,183 @@ namespace irods::policy_composition {
 
         return match;
 
-    } // evaluate_metadata_conditional
+    } // evaluate_metadata
+
+    auto evaluate_metadata_applied_conditional(
+          const json& cm           // conditional metadata
+        , const json& em) -> bool  // entity metadata
+    {
+        if(cm.contains("entity_type") &&
+           em.contains("entity_type")) {
+           if(cm.at("entity_type") != em.at("entity_type")) {
+               return false;
+           }
+        }
+
+        if(cm.contains("operation") &&
+           em.contains("operation")) {
+            bool found = false;
+            for(const auto op : cm.at("operation")) {
+                if(op == em.at("operation")) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if(!found) {
+                return false;
+            }
+        }
+
+        const fs::metadata cmd{
+              cm.contains("attribute") ? cm.at("attribute") : ""
+            , cm.contains("value")     ? cm.at("value")     : ""
+            , cm.contains("units")     ? cm.at("units")     : ""};
+
+        const fs::metadata emd{
+              em.contains("attribute") ? em.at("attribute") : ""
+            , em.contains("value")     ? em.at("value")     : ""
+            , em.contains("units")     ? em.at("units")     : ""};
+
+        return evaluate_metadata(cmd, emd);
+
+    } // evaluate_metadata_applied_conditional
+
+    auto get_metadata(
+          rsComm_t*  _comm
+        , const fsp& _p) -> std::vector<fs::metadata>
+    {
+        std::vector<fs::metadata> fsmd{};
+
+        try {
+            fsmd = fsvr::get_metadata(*_comm, _p);
+        }
+        catch(...) {
+        }
+
+        return fsmd;
+
+    } // get_metadata
+
+    auto path_contains_metadata(
+          rsComm_t*           comm
+        , const fs::metadata& cmd  // conditional metadata
+        , const fsp&          cp) -> bool
+    {
+        bool match{false};
+
+        for(auto&& md : get_metadata(comm, cp)) {
+            if(evaluate_metadata(cmd, md)) {
+                match = true;
+                break;
+            }
+        }
+
+        return match;
+
+    } // path_contains_metadata
+
+    auto collection_contains_metadata(
+          rsComm_t*           comm
+        , const fs::metadata& cmd  // conditional metadata
+        , const fsp&          path
+        , const bool          recur) -> bool
+    {
+        auto cp    = fsp{path};
+        auto root  = fsp{"/"};
+        auto match = false;
+
+        if(fsvr::is_data_object(*comm, cp)) {
+            cp = cp.parent_path();
+        }
+
+        while(root != cp) {
+            if(path_contains_metadata(comm, cmd, cp)) {
+                match = true;
+                break;
+            }
+
+            if(!recur) { break; }
+
+            cp = cp.parent_path();
+
+        } // while
+
+        return match;
+
+    } // collection_contains_metadata
+
+    auto entity_contains_metadata(
+          rsComm_t*             comm
+        , const fs::metadata&   cmd
+        , const xm::entity_type et
+        , const std::string&    name) -> bool
+    {
+        auto match = false;
+
+        for(auto&& md : xm::get(*comm, et, name)) {
+            if(evaluate_metadata(cmd, {md.attribute, md.value, md.units})) {
+                match = true;
+                break;
+            }
+        }
+
+        return match;
+
+    } // user_contains_metadata
+
+    auto evaluate_metadata_exists_conditional(
+          rsComm_t*          comm
+        , const json&        cond
+        , const std::string& tgt) -> bool
+    {
+        const fs::metadata cmd{
+              cond.contains("attribute") ? cond.at("attribute") : ""
+            , cond.contains("value")     ? cond.at("value")     : ""
+            , cond.contains("units")     ? cond.at("units")     : ""};
+
+        if(cmd.attribute.empty() && cmd.value.empty() && cmd.units.empty()) {
+            return true;
+        }
+
+        throw_if_doesnt_contain(cond, "entity_type");
+
+        auto et = cond.at("entity_type");
+
+        if(et == "data_object")
+        {
+            if(!fsvr::is_data_object(*comm, tgt)) {
+                return false;
+            }
+
+            return path_contains_metadata(comm, cmd, tgt);
+        }
+        else if(et == "collection")
+        {
+            auto r = cond.contains("recusrive");
+            return collection_contains_metadata(comm, cmd, tgt, r);
+        }
+        else if(et == "resource")
+        {
+            return entity_contains_metadata(comm, cmd, xm::entity_type::resource, tgt);
+        }
+        else if(et == "user")
+        {
+            return entity_contains_metadata(comm, cmd, xm::entity_type::user, tgt);
+        }
+        else {
+            THROW(
+                SYS_INVALID_INPUT_PARAM,
+                fmt::format("unknown entity type [{}]", et.get<std::string>()));
+        }
+
+        return false;
+
+    } // evaluate_metadata_exists_conditional
 
     static bool evaluate_conditionals(
-          const json& parameters
+          rsComm_t*   comm
+        , const json& parameters
         ,       json& policy)
     {
         // look for conditionals
@@ -392,11 +553,44 @@ namespace irods::policy_composition {
 
             auto conditional = policy.at("conditional");
 
-            if(conditional.contains("metadata")) {
-                auto cmd = policy.at("conditional").at("metadata");
+            if(conditional.contains("metadata_exists")) {
+                auto tgt = std::string{};
+                auto cmd = policy.at("conditional").at("metadata_exists");
+
+                throw_if_doesnt_contain(cmd, "entity_type");
+
+                auto et = cmd.at("entity_type");
+
+                if(et == "data_object" || et == "collection")
+                {
+                    tgt = logical_path;
+                }
+                else if(et == "resource")
+                {
+                    tgt = source_resource;
+                }
+                else if(et == "user")
+                {
+                    tgt = user_name;
+                }
+                else {
+                    THROW(
+                        SYS_INVALID_INPUT_PARAM,
+                        fmt::format("invalid entity type [{}]", et.get<std::string>()));
+                }
+
+                if(!evaluate_metadata_exists_conditional(comm, cmd, tgt)) {
+                    return false;
+                }
+
+                //policy.at("parameters").at("conditional").at("metadata") = parameters.at("metadata");
+            }
+
+            if(conditional.contains("metadata_applied")) {
+                auto cmd = policy.at("conditional").at("metadata_applied");
                 auto emd = parameters.at("metadata");
-                if(!evaluate_metadata_conditional(cmd, emd)) {
-                        return false;
+                if(!evaluate_metadata_applied_conditional(cmd, emd)) {
+                    return false;
                 }
 
                 policy.at("parameters").at("conditional").at("metadata") = parameters.at("metadata");
@@ -456,7 +650,7 @@ namespace irods::policy_composition {
                 if(rule_name.find(suffix) != std::string::npos) {
 
                     // look for conditionals
-                    if(!evaluate_conditionals(parameters, policy)) {
+                    if(!evaluate_conditionals(rei->rsComm, parameters, policy)) {
                         continue;
                     } // if conditional
 

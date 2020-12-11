@@ -60,7 +60,6 @@ namespace irods::policy_composition {
     auto serialize_openedDataObjInp_to_json(const openedDataObjInp_t& _inp) -> json;
     auto serialize_rsComm_to_json(rsComm_t*) -> json;
     auto invoke_policies_for_event(ruleExecInfo_t*, const std::string&, const std::string&, const json&, const json&) -> void;
-    auto evaluate_metadata_conditional(const json&, const json&) -> bool;
 
 } // namespace irods::policy_composition
 
