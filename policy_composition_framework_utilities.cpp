@@ -25,6 +25,16 @@ namespace irods::policy_composition {
     using     fsp  = fs::path;
     // clang-format on
 
+    auto demangle(const char* name) -> std::string
+    {
+        int status{};
+        std::unique_ptr<char, void(*)(void*)> res {
+            abi::__cxa_demangle(name, NULL, NULL, &status),
+                std::free
+        };
+        return (status==0) ? res.get() : name ;
+    }
+
     void throw_if_doesnt_contain(
           const json&       _p
         , const std::string _v)
@@ -682,10 +692,12 @@ namespace irods::policy_composition {
                         std::string pnm{policy["policy"]};
                         std::string params{pam.dump()};
                         std::string config{cfg.dump()};
+                        std::string out{};
 
                         args.clear();
-                        args.push_back(boost::any(std::ref(params)));
-                        args.push_back(boost::any(std::ref(config)));
+                        args.push_back(boost::any(&params));
+                        args.push_back(boost::any(&config));
+                        args.push_back(boost::any(&out));
 
                         invoke_policy(rei, pnm, args);
                     } // for ops

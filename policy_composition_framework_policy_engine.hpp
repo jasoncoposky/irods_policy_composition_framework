@@ -12,14 +12,14 @@
 #include "policy_composition_framework_utilities.hpp"
 
 #include "json.hpp"
+#include "fmt/format.h"
 
 namespace irods::policy_composition::policy_engine {
 
     // clang-format off
-    using     json = nlohmann::json;
     namespace ipc  = irods::policy_composition;
-    // clang-format on
 
+    using     json = nlohmann::json;
 
     struct context {
         ruleExecInfo_t* rei{};
@@ -31,57 +31,63 @@ namespace irods::policy_composition::policy_engine {
         json            configuration{};
     }; // struct context
 
-    using arg_type            = std::reference_wrapper<std::string>;
+    // clang-format off
+    using arg_type            = std::string*;
     using plugin_type         = pluggable_rule_engine<irods::default_re_ctx>;
     using plugin_pointer_type = plugin_type*;
-    using implementation_type = std::function<error(const context&)>;
+    using implementation_type = std::function<error(const context&, arg_type)>;
 
     context             policy_context;
     implementation_type policy_implementation;
+    // clang-format on
 
     namespace {
-        error start(
+        auto start(
               default_re_ctx&
-            , const std::string&)
+            , const std::string&) -> error
         {
             RuleExistsHelper::Instance()->registerRuleRegex(
                 policy_context.policy_name + ".*");
             return SUCCESS();
         }
 
-        error stop(
+        auto stop(
             default_re_ctx&,
-            const std::string& ) {
+            const std::string& ) -> error
+        {
             return SUCCESS();
         }
 
-        auto rule_name_is_supported(const std::string& _rule_name)
+        auto rule_name_is_supported(const std::string& _rule_name) -> bool
         {
-            return (policy_context.policy_name  == _rule_name ||
+            auto supported = (policy_context.policy_name  == _rule_name ||
                     policy_context.policy_usage == _rule_name);
+
+            return supported;
+
         } // rule_name_is_supported
 
-        error rule_exists(
+        auto rule_exists(
               default_re_ctx&
             , const std::string& _rule_name
-            , bool&              _return_value)
+            , bool&              _return_value) -> error
         {
             _return_value = rule_name_is_supported(_rule_name);
             return SUCCESS();
         }
 
-        error list_rules(
+        auto list_rules(
              default_re_ctx&
-            , std::vector<std::string>& _rules)
+            , std::vector<std::string>& _rules) -> error
         {
             _rules.push_back(policy_context.policy_name);
             _rules.push_back(policy_context.policy_usage);
             return SUCCESS();
         }
 
-        bool get_log_errors_flag(
+        auto get_log_errors_flag(
               const json& _params
-            , const json& _config)
+            , const json& _config) -> bool
         {
             bool flag = false;
             if(!_params.empty()) {
@@ -98,7 +104,7 @@ namespace irods::policy_composition::policy_engine {
 
         } // get_log_errors_flag
 
-        void log_parse_error(const std::string& msg)
+        auto log_parse_error(const std::string& msg) -> void
         {
             rodsLog(LOG_ERROR
                   , "policy_engine :: failed to parse metdata substitution [%s]"
@@ -122,34 +128,41 @@ namespace irods::policy_composition::policy_engine {
 
             try {
                 if(policy_context.policy_usage == _rule_name) {
-                    auto it = _arguments.begin();
-                    auto parameter_string{ boost::any_cast<arg_type>(*it) }; ++it;
 
-                    parameter_string.get() = policy_context.usage_text;
+                    auto it = _arguments.begin();
+
+                    std::advance(it, 2);
+
+                    auto* out = boost::any_cast<arg_type>(*it);
+
+                    *out = policy_context.usage_text;
 
                     return SUCCESS();
                 }
                 else if(policy_context.policy_name == _rule_name) {
+
                     policy_context.rei = rei;
 
                     auto it = _arguments.begin();
-                    auto parameter_string{boost::any_cast<arg_type>(*it)}; ++it;
-                    auto configuration_string{boost::any_cast<arg_type>(*it)};
+                    auto* parameters     = boost::any_cast<std::string*>(*it); ++it;
+                    auto* configuration  = boost::any_cast<std::string*>(*it); ++it;
+                    auto* out_variable   = boost::any_cast<std::string*>(*it);
 
                     bool log_errors = false;
 
-                    if(!parameter_string.get().empty()) {
-                        policy_context.parameters = json::parse(parameter_string.get());
+                    if(!parameters->empty()) {
+                        policy_context.parameters = json::parse(*parameters);
                     }
 
-                    if(!configuration_string.get().empty()) {
-                        policy_context.configuration = json::parse(configuration_string.get());
+                    if(!configuration->empty()) {
+                        policy_context.configuration = json::parse(*configuration);
                     }
 
                     log_errors = get_log_errors_flag(
                                        policy_context.parameters
                                      , policy_context.configuration);
-                    auto err = policy_implementation(policy_context);
+
+                    auto err = policy_implementation(policy_context, out_variable);
 
                     if(!err.ok()) {
                         addRErrorMsg(
@@ -202,18 +215,17 @@ namespace irods::policy_composition::policy_engine {
                            SYS_NOT_SUPPORTED,
                            _e.what());
             }
-#if 0
             catch(...) {
+                auto msg = "policy_engine :: an unknown error has occurred.";
                 addRErrorMsg(
                         &rei->rsComm->rError,
                         SYS_NOT_SUPPORTED,
-                        "policy_engine :: an unknown error has occurred.");
-                rodsLog(LOG_ERROR, "policy_engine :: an unknown error has occurred.");
+                        msg);
+                rodsLog(LOG_ERROR, msg);
                 return ERROR(
                            SYS_NOT_SUPPORTED,
-                           "policy_engine :: an unknown error has occurred.");
+                           msg);
             }
-#endif
 
             // given that this is a specific policy implementation which does not react
             // to policy enforcement points we can return SUCCESS() rather than

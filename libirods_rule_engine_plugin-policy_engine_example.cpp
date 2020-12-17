@@ -39,7 +39,7 @@ const char usage[] = R"(
 }
 )";
 
-irods::error example_policy(const pe::context& ctx)
+irods::error example_policy(const pe::context& ctx, pe::arg_type out)
 {
     //  struct context {
     //      ruleExecInfo_t* rei{};
@@ -48,6 +48,9 @@ irods::error example_policy(const pe::context& ctx)
     //      json            parameters{};
     //      json            configuration{};
     //  }; // struct context
+
+    *out = "Hello, World! from the example policy engine";
+
     rodsLog(
           LOG_NOTICE
         , "[%s]::[%s]"

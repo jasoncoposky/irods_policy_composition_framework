@@ -44,6 +44,8 @@ namespace irods::policy_composition {
 
     } // exec_as_user
 
+    std::string demangle(const char* name);
+
     auto any_to_string(boost::any&);
     void exception_to_rerror(const irods::exception&, rError_t&);
     void exception_to_rerror(const int, const char*, rError_t&);
