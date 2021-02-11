@@ -21,6 +21,16 @@ namespace irods::policy_composition {
     using arguments_type = std::list<boost::any>;
     // clang-format on
 
+    template <typename T>
+    auto get(const json& j, const std::string& k, T d) -> T
+    {
+        if(!j.contains(k)) {
+            return d;
+        }
+
+        return j.at(k).get<T>();
+    } // get
+
     template <typename Function>
     int exec_as_user(rsComm_t& _comm, const std::string& _user_name, Function _func)
     {

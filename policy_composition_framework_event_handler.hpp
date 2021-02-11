@@ -87,9 +87,10 @@ namespace irods::policy_composition::event_handler {
 
             auto [event, obj] = hdlr(_pep, _args, _rei);
 
-            auto p2i = configuration->plugin_configuration.at("policies_to_invoke");
-
-            ipc::invoke_policies_for_event(_rei, event, _pep, p2i, obj);
+            if(!event.empty() && !obj.empty()) {
+                auto p2i = configuration->plugin_configuration.at("policies_to_invoke");
+                ipc::invoke_policies_for_event(_rei, event, _pep, p2i, obj);
+            }
         }
 
     } // process_policy_enforcement_point

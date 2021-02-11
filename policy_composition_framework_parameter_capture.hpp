@@ -44,12 +44,15 @@ namespace {
     {
         std::string user_name{}, logical_path{}, source_resource{}, destination_resource{};
 
-        auto comm_obj = _params.contains("comm") ? _params.at("comm") : json{};
         user_name = extract_object_parameter<std::string>("user_name", _params);
 
-        if(user_name.empty()) {
-            //user_name = extract_object_parameter<std::string>("proxy_user_name", comm_obj);
-            user_name = extract_object_parameter<std::string>("user_user_name", comm_obj);
+        auto comm_obj =  json{};
+        if(_params.contains("comm")) {
+            comm_obj = _params.at("comm");
+            if(user_name.empty()) {
+                //user_name = extract_object_parameter<std::string>("proxy_user_name", comm_obj);
+                user_name = extract_object_parameter<std::string>("user_user_name", comm_obj);
+            }
         }
 
         logical_path = extract_object_parameter<std::string>("obj_path", _params);
@@ -71,7 +74,7 @@ namespace {
 
             if(source_resource.empty()) {
                 if(cond_input.contains("resc_hier")) {
-                    std::string resc_hier = _params.at("cond_input").at("resc_hier");
+                    std::string resc_hier = cond_input.at("resc_hier");
                     irods::hierarchy_parser parser(resc_hier);
                     source_resource = parse_hierarchy(parser, T);
                 }
@@ -83,7 +86,7 @@ namespace {
 
             if(destination_resource.empty()) {
                 if(cond_input.contains("dest_resc_hier")) {
-                    std::string dest_resc_hier = _params.at("cond_input").at("dest_resc_hier");
+                    std::string dest_resc_hier = cond_input.at("dest_resc_hier");
                     irods::hierarchy_parser parser(dest_resc_hier);
                     destination_resource = parse_hierarchy(parser, T);
                 }
@@ -91,7 +94,8 @@ namespace {
         }
 
         return std::make_tuple(user_name, logical_path, source_resource, destination_resource);
-    }
+
+    } //  extract_dataobj_inp_parameters
 
     template<typename T>
     T extract_array_parameter(
@@ -144,6 +148,7 @@ namespace {
     auto capture_parameters(
         const json& params,
         TAG_TYPE    T) {
+
         std::string user_name{}, logical_path{}, source_resource{}, destination_resource{};
 
         std::tie(user_name, logical_path, source_resource, destination_resource) =
@@ -163,7 +168,8 @@ namespace {
             if(qr.size() > 2) { tmp_data_name = qr[2]; }
             if(qr.size() > 3 && source_resource.empty()) { source_resource = qr[3]; }
 
-            if(logical_path.empty()) {
+            //if(logical_path.empty()) {
+            if(!tmp_coll_name.empty() && !tmp_data_name.empty()) {
                 logical_path = (fsp{tmp_coll_name} / fsp{tmp_data_name}).string();
             }
         }

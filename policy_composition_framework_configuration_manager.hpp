@@ -20,7 +20,7 @@ namespace irods::policy_composition::policy_engine {
         template<typename T>
         auto get(
             const std::string& _key
-          , const T&           _default)
+          , const T&           _default) const
         {
             const auto& tmp_cfg = plugin_cfg_.plugin_configuration;
 
@@ -45,7 +45,7 @@ namespace irods::policy_composition::policy_engine {
 
         auto get(
             const std::string& _key
-          , const char         _default[]) -> std::string
+          , const char         _default[]) -> std::string const
         {
             const auto& tmp_cfg = plugin_cfg_.plugin_configuration;
 
