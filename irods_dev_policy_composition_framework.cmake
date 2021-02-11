@@ -72,9 +72,10 @@ install(
 
 install(
   FILES
+  policy_composition_framework_keywords.hpp
+  policy_composition_framework_utilities.hpp
   policy_composition_framework_event_handler.hpp
   policy_composition_framework_policy_engine.hpp
-  policy_composition_framework_utilities.hpp
   policy_composition_framework_parameter_capture.hpp
   policy_composition_framework_plugin_configuration_json.hpp
   policy_composition_framework_configuration_manager.hpp

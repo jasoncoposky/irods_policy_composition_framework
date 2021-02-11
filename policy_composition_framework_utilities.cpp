@@ -20,6 +20,7 @@ extern l1desc_t L1desc[NUM_L1_DESC];
 namespace irods::policy_composition {
 
     // clang-format off
+    namespace kw   = irods::policy_composition::keywords;
     namespace xm   = irods::experimental::metadata;
     namespace fs   = irods::experimental::filesystem;
     namespace fsvr = irods::experimental::filesystem::server;
@@ -28,9 +29,9 @@ namespace irods::policy_composition {
 
     auto to_json(fs::metadata& md)
     {
-        return json{{"attribute", md.attribute},
-                    {"value",     md.value},
-                    {"units",     md.units}};
+        return json{{kw::attribute, md.attribute},
+                    {kw::value,     md.value},
+                    {kw::units,     md.units}};
     }
 
     auto demangle(const char* name) -> std::string
@@ -395,18 +396,18 @@ namespace irods::policy_composition {
           const json& cm           // conditional metadata
         , const json& em) -> bool  // entity metadata
     {
-        if(cm.contains("entity_type") &&
-           em.contains("entity_type")) {
-           if(cm.at("entity_type") != em.at("entity_type")) {
+        if(cm.contains(kw::entity_type) &&
+           em.contains(kw::entity_type)) {
+           if(cm.at(kw::entity_type) != em.at(kw::entity_type)) {
                return false;
            }
         }
 
-        if(cm.contains("operation") &&
-           em.contains("operation")) {
+        if(cm.contains(kw::operation) &&
+           em.contains(kw::operation)) {
             bool found = false;
-            for(const auto op : cm.at("operation")) {
-                if(op == em.at("operation")) {
+            for(const auto op : cm.at(kw::operation)) {
+                if(op == em.at(kw::operation)) {
                     found = true;
                     break;
                 }
@@ -418,14 +419,14 @@ namespace irods::policy_composition {
         }
 
         const fs::metadata cmd{
-              cm.contains("attribute") ? cm.at("attribute") : ".*"
-            , cm.contains("value")     ? cm.at("value")     : ".*"
-            , cm.contains("units")     ? cm.at("units")     : ".*"};
+              cm.contains(kw::attribute) ? cm.at(kw::attribute) : ".*"
+            , cm.contains(kw::value)     ? cm.at(kw::value)     : ".*"
+            , cm.contains(kw::units)     ? cm.at(kw::units)     : ".*"};
 
         const fs::metadata emd{
-              em.contains("attribute") ? em.at("attribute") : ""
-            , em.contains("value")     ? em.at("value")     : ""
-            , em.contains("units")     ? em.at("units")     : ""};
+              em.contains(kw::attribute) ? em.at(kw::attribute) : ""
+            , em.contains(kw::value)     ? em.at(kw::value)     : ""
+            , em.contains(kw::units)     ? em.at(kw::units)     : ""};
 
         return evaluate_metadata(cmd, emd);
 
@@ -530,25 +531,25 @@ namespace irods::policy_composition {
         , const std::string& tgt) -> std::tuple<bool, fs::metadata>
     {
         const fs::metadata cmd{
-              cond.contains("attribute") ? cond.at("attribute") : ""
-            , cond.contains("value")     ? cond.at("value")     : ""
-            , cond.contains("units")     ? cond.at("units")     : ""};
+              cond.contains(kw::attribute) ? cond.at(kw::attribute) : ""
+            , cond.contains(kw::value)     ? cond.at(kw::value)     : ""
+            , cond.contains(kw::units)     ? cond.at(kw::units)     : ""};
 
         if(cmd.attribute.empty() && cmd.value.empty() && cmd.units.empty()) {
             return std::make_tuple(true, fs::metadata{});;
         }
 
-        throw_if_doesnt_contain(cond, "entity_type");
+        throw_if_doesnt_contain(cond, kw::entity_type);
 
-        auto et = cond.at("entity_type");
+        auto et = cond.at(kw::entity_type);
 
-        if(et == "data_object")
+        if(et == kw::data_object)
         {
             if(!fsvr::is_data_object(*comm, tgt)) {
                 return std::make_tuple(false, fs::metadata{});;
             }
 
-            auto r = cond.contains("recursive");
+            auto r = cond.contains(kw::recursive);
             if(r) {
                 return collection_contains_metadata(comm, cmd, tgt, r);
             }
@@ -556,16 +557,16 @@ namespace irods::policy_composition {
                 return path_contains_metadata(comm, cmd, tgt);
             }
         }
-        else if(et == "collection")
+        else if(et == kw::collection)
         {
-            auto r = cond.contains("recursive");
+            auto r = cond.contains(kw::recursive);
             return collection_contains_metadata(comm, cmd, tgt, r);
         }
-        else if(et == "resource")
+        else if(et == kw::resource)
         {
             return entity_contains_metadata(comm, cmd, xm::entity_type::resource, tgt);
         }
-        else if(et == "user")
+        else if(et == kw::user)
         {
             return entity_contains_metadata(comm, cmd, xm::entity_type::user, tgt);
         }
@@ -585,7 +586,7 @@ namespace irods::policy_composition {
         , json&     policy)
     {
         // if no conditional exists, then the policy is invoked
-        if(!policy.contains("conditional")) {
+        if(!policy.contains(kw::conditional)) {
             return true;
         }
 
@@ -594,26 +595,26 @@ namespace irods::policy_composition {
         std::tie(user_name, logical_path, source_resource, destination_resource) =
             capture_parameters(parameters, tag_first_resc);
 
-        auto conditional = policy.at("conditional");
+        auto conditional = policy.at(kw::conditional);
 
-        if(conditional.contains("metadata_applied")) {
-            auto cmd = conditional.at("metadata_applied");
-            auto emd = parameters.at("metadata");
+        if(conditional.contains(kw::metadata_applied)) {
+            auto cmd = conditional.at(kw::metadata_applied);
+            auto emd = parameters.at(kw::metadata);
             if(!evaluate_metadata_applied_conditional(cmd, emd)) {
                 return false;
             }
 
-            parameters["metadata"]             = emd;
-            parameters["conditional_metadata"] = cmd;
+            parameters[kw::metadata]             = emd;
+            parameters[kw::conditional_metadata] = cmd;
         }
 
-        if(conditional.contains("metadata_exists")) {
+        if(conditional.contains(kw::metadata_exists)) {
             auto tgt = std::string{};
-            auto cmd = conditional.at("metadata_exists");
+            auto cmd = conditional.at(kw::metadata_exists);
 
-            throw_if_doesnt_contain(cmd, "entity_type");
+            throw_if_doesnt_contain(cmd, kw::entity_type);
 
-            auto et = cmd.at("entity_type");
+            auto et = cmd.at(kw::entity_type);
 
             if(et == "data_object" || et == "collection")
             {
@@ -641,29 +642,29 @@ namespace irods::policy_composition {
             parameters["conditional_metadata"] = to_json(md);
         }
 
-        if(conditional.contains("logical_path")) {
-            auto cond_regex = boost::regex(conditional.at("logical_path"));
+        if(conditional.contains(kw::logical_path)) {
+            auto cond_regex = boost::regex(conditional.at(kw::logical_path));
             if(!boost::regex_match(logical_path, cond_regex)) {
                 return false;
             }
         }
 
-        if(conditional.contains("source_resource") && !source_resource.empty()) {
-            auto cond_regex = boost::regex(conditional.at("source_resource"));
+        if(conditional.contains(kw::source_resource) && !source_resource.empty()) {
+            auto cond_regex = boost::regex(conditional.at(kw::source_resource));
             if(!boost::regex_match(source_resource, cond_regex)) {
                 return false;
             }
         }
 
-        if(conditional.contains("destination_resource") && !source_resource.empty()) {
-            auto cond_regex = boost::regex(conditional.at("destination_resource"));
+        if(conditional.contains(kw::destination_resource) && !source_resource.empty()) {
+            auto cond_regex = boost::regex(conditional.at(kw::destination_resource));
             if(!boost::regex_match(destination_resource, cond_regex)) {
                 return false;
             }
         }
 
-        if(conditional.contains("user_name") && !user_name.empty()) {
-            auto cond_regex = boost::regex(conditional.at("user_name"));
+        if(conditional.contains(kw::user_name) && !user_name.empty()) {
+            auto cond_regex = boost::regex(conditional.at(kw::user_name));
             if(!boost::regex_match(user_name, cond_regex)) {
                 return false;
             }
@@ -680,15 +681,14 @@ namespace irods::policy_composition {
         , const json&        policies_to_invoke
         , const json&        parameters)
     {
-
         std::list<boost::any> args;
         for(auto policy : policies_to_invoke) {
-            auto policy_clauses = policy["active_policy_clauses"];
+            auto policy_clauses = policy.at(kw::active_policy_clauses);
             if(policy_clauses.empty()) {
                 continue;
             }
 
-            if(!policy.contains("policy_to_invoke")) {
+            if(!policy.contains(kw::policy_to_invoke)) {
                 rodsLog(
                     LOG_ERROR,
                     "%s - missing  policy_to_invoke key <%s>",
@@ -703,16 +703,16 @@ namespace irods::policy_composition {
 
                     json pam{}, cfg{};
 
-                    if(policy.contains("parameters")) {
-                        pam = policy.at("parameters");
+                    if(policy.contains(kw::parameters)) {
+                        pam = policy.at(kw::parameters);
                         pam.insert(parameters.begin(), parameters.end()); // is this is goofing things
                     }
                     else {
                         pam = parameters;
                     }
 
-                    if(policy.contains("configuration")) {
-                        cfg = policy["configuration"];
+                    if(policy.contains(kw::configuration)) {
+                        cfg = policy[kw::configuration];
                     }
 
                     // look for conditionals
@@ -720,8 +720,8 @@ namespace irods::policy_composition {
                         continue;
                     } // if conditional
 
-                    auto ops = policy["events"];
-                    auto pnm = std::string{policy["policy_to_invoke"]};
+                    auto ops = policy[kw::events];
+                    auto pnm = std::string{policy[kw::policy_to_invoke]};
 
                     for(auto& op : ops) {
                         std::string upper_operation{op};

@@ -1,6 +1,8 @@
 #ifndef IRODS_POLICY_COMPOSITION_FRAMEWORK_UTILITIES
 #define IRODS_POLICY_COMPOSITION_FRAMEWORK_UTILITIES
 
+#include "policy_composition_framework_keywords.hpp"
+
 #include "irods_re_plugin.hpp"
 #include "irods_exception.hpp"
 #include "irods_at_scope_exit.hpp"
